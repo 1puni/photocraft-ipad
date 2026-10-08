@@ -1,5 +1,17 @@
 # Attribution
 
-The editor engine, canvas, command catalogue, and shared UI are linked from PhotoCraft (https://github.com/storytold/photocraft), licensed MIT OR Apache-2.0. The sibling fork retains its original notices and asset attribution. The iPad workspace uses the editor's existing icon and font facilities; no third-party fonts or bitmap assets are copied into this repository.
+| Material | Author / source | License |
+|---|---|---|
+| Linked engine, canvas, file services, command catalogue and shared UI | [PhotoCraft](https://github.com/storytold/photocraft), ArtCraft team and contributors; pinned in `upstream.env` | MIT OR Apache-2.0; original notices in NOTICE |
+| `patches/photocraft/*.patch` | 1puni changes to PhotoCraft, original authors retained in each patch | MIT OR Apache-2.0 |
+| Rust iPad workspace/input adapter, workbench and diagnostics | 1puni and contributors | MIT OR Apache-2.0 |
+| `public/images/cover.svg` | Original vector artwork by 1puni, created with AI coding assistance | MIT OR Apache-2.0 |
+| `public/images/workspace.jpg`, `public/images/brush-studio.jpg` | This project's browser UI displaying Hokusai's Great Wave (c. 1831); [artwork source](https://commons.wikimedia.org/wiki/File:The_Great_Wave_off_Kanagawa.jpg) | Artwork public domain; UI MIT OR Apache-2.0 |
 
-The local workbench and Pencil diagnostic UI are original code. Compiled editor distributions are ignored build artifacts, not repository source.
+The linked UI uses PhotoCraft's icon and font facilities. Its full asset inventory
+is [upstream ATTRIBUTION.md](https://github.com/storytold/photocraft/blob/5896f0b63e6f342e0311920b4d2a0ea5a94330fc/ATTRIBUTION.md).
+No third-party fonts or ArtCraft brand marks are copied into this repository.
+The build includes the upstream NOTICE, asset inventory and license texts beside
+the compiled editor. Generated distributions stay out of Git.
+
+See [visual sources and reproduction](docs/visuals.md) for capture details.

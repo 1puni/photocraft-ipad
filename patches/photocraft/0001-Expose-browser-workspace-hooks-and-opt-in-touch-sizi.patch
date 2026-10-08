@@ -1,0 +1,272 @@
+From 022408ef45b783f50164c1a7ce2be609a54ba609 Mon Sep 17 00:00:00 2001
+From: Evita Stenqvist <evita@stenqvist.co>
+Date: Thu, 8 Oct 2026 15:07:52 +0200
+Subject: [PATCH 1/4] Expose browser workspace hooks and opt-in touch sizing
+
+---
+ apps/photocraft-web/index.html  |  6 +++--
+ apps/photocraft-web/src/lib.rs  |  3 +++
+ apps/photocraft-web/src/main.rs |  5 +---
+ apps/photocraft-web/src/web.rs  | 46 ++++++++++++++++++++++++++++++---
+ crates/ui-egui/src/lib.rs       | 35 +++++++++++++++----------
+ crates/ui-egui/src/touch_ui.rs  | 35 +++++++++++++++++++++++++
+ 6 files changed, 107 insertions(+), 23 deletions(-)
+ create mode 100644 apps/photocraft-web/src/lib.rs
+ create mode 100644 crates/ui-egui/src/touch_ui.rs
+
+diff --git a/apps/photocraft-web/index.html b/apps/photocraft-web/index.html
+index 5e73400..8786f3d 100644
+--- a/apps/photocraft-web/index.html
++++ b/apps/photocraft-web/index.html
+@@ -2,12 +2,14 @@
+ <html lang="en">
+ <head>
+   <meta charset="utf-8">
+-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
++  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
++  <meta name="apple-mobile-web-app-capable" content="yes">
++  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+   <title>PhotoCraft</title>
+   <link data-trunk rel="rust" data-bin="photocraft-web" data-cargo-profile="wasm-release" data-cargo-features="heif" data-wasm-opt="z" data-weak-refs />
+   <style>
+     html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #262626; }
+-    #photocraft_canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
++    #photocraft_canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; -webkit-user-select: none; user-select: none; }
+     #photocraft_loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+       padding: 0 16px; text-align: center; color: #b8b8b8; font: 14px system-ui, sans-serif; pointer-events: none; }
+     #photocraft_loading p { margin: 0 0 8px; max-width: 420px; line-height: 1.5; }
+diff --git a/apps/photocraft-web/src/lib.rs b/apps/photocraft-web/src/lib.rs
+new file mode 100644
+index 0000000..cb62181
+--- /dev/null
++++ b/apps/photocraft-web/src/lib.rs
+@@ -0,0 +1,3 @@
++//! Reusable browser host for PhotoCraft frontends.
++#[cfg(target_arch = "wasm32")]
++pub mod web;
+diff --git a/apps/photocraft-web/src/main.rs b/apps/photocraft-web/src/main.rs
+index 15b6f26..f50c9c9 100644
+--- a/apps/photocraft-web/src/main.rs
++++ b/apps/photocraft-web/src/main.rs
+@@ -16,12 +16,9 @@
+ 
+ #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
+ 
+-#[cfg(target_arch = "wasm32")]
+-mod web;
+-
+ #[cfg(target_arch = "wasm32")]
+ fn main() {
+-    web::start();
++    photocraft_web::web::start();
+ }
+ 
+ #[cfg(not(target_arch = "wasm32"))]
+diff --git a/apps/photocraft-web/src/web.rs b/apps/photocraft-web/src/web.rs
+index 95e31fa..e81aee4 100644
+--- a/apps/photocraft-web/src/web.rs
++++ b/apps/photocraft-web/src/web.rs
+@@ -19,9 +19,24 @@ const OPEN_EXTS: &[&str] = &[
+ ];
+ const CANVAS_ID: &str = "photocraft_canvas";
+ 
++/// Optional browser frontend. A host can replace workspace chrome while sharing the engine,
++/// import/export services, canvas, and complete dialog lifecycle.
++pub trait BrowserWorkspace {
++    fn attach(&mut self, _canvas: &web_sys::HtmlCanvasElement, _ctx: &egui::Context, _app: &mut PhotocraftApp) {}
++    fn raw_input(&mut self, _raw: &mut egui::RawInput) {}
++    fn logic(&mut self, _app: &mut PhotocraftApp, _ctx: &egui::Context) {}
++    fn ui(&mut self, app: &mut PhotocraftApp, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
++        eframe::App::ui(app, ui, frame);
++    }
++}
++
+ pub fn start() {
++    start_with_workspace(None);
++}
++
++pub fn start_with_workspace(mut workspace: Option<Box<dyn BrowserWorkspace>>) {
+     eframe::WebLogger::init(log::LevelFilter::Info).ok();
+-    wasm_bindgen_futures::spawn_local(async {
++    wasm_bindgen_futures::spawn_local(async move {
+         let Some(document) = web_sys::window().and_then(|w| w.document()) else {
+             log::error!("no document");
+             return;
+@@ -49,6 +64,9 @@ pub fn start() {
+                     let inbox: Inbox = Arc::default();
+                     let mut app = PhotocraftApp::new(Session::new(), services(inbox.clone(), cc.egui_ctx.clone()));
+                     listen_pen(&pen_target, app.stylus.feed.clone());
++                    if let Some(workspace) = workspace.as_mut() {
++                        workspace.attach(&pen_target, &cc.egui_ctx, &mut app);
++                    }
+                     app.set_theme(&cc.egui_ctx, ThemeKind::Pro);
+                     if let Some(rs) = cc.wgpu_render_state.clone()
+                         && !force_cpu
+@@ -56,7 +74,7 @@ pub fn start() {
+                         log::info!("photocraft-web: wgpu backend {:?}", rs.adapter.get_info().backend);
+                         app.set_wgpu(rs);
+                     }
+-                    Ok(Box::new(WebShell { app, inbox }))
++                    Ok(Box::new(WebShell { app, inbox, workspace }))
+                 }),
+             )
+             .await;
+@@ -78,6 +96,10 @@ fn listen_pen(target: &web_sys::HtmlCanvasElement, feed: photocraft_ui_egui::sty
+     for kind in ["pointerdown", "pointermove", "pointerup", "pointercancel", "pointerleave"] {
+         let feed = feed.clone();
+         let cb = Closure::<dyn FnMut(web_sys::PointerEvent)>::new(move |e: web_sys::PointerEvent| {
++            // Fingers must not overwrite the Pencil's pressure while the palm is on the glass.
++            if e.pointer_type() == "touch" {
++                return;
++            }
+             let ty = e.type_();
+             if ty == "pointerup" && e.pointer_type() == "pen" {
+                 return;
+@@ -93,7 +115,8 @@ fn listen_pen(target: &web_sys::HtmlCanvasElement, feed: photocraft_ui_egui::sty
+                 eraser,
+             }));
+         });
+-        if target.add_event_listener_with_callback(kind, cb.as_ref().unchecked_ref()).is_ok() {
++        // eframe may run logic synchronously on pointerdown: update the feed before its listener.
++        if target.add_event_listener_with_callback_and_bool(kind, cb.as_ref().unchecked_ref(), true).is_ok() {
+             cb.forget();
+         }
+     }
+@@ -108,9 +131,17 @@ fn query() -> String {
+ struct WebShell {
+     app: PhotocraftApp,
+     inbox: Inbox,
++    workspace: Option<Box<dyn BrowserWorkspace>>,
+ }
+ 
+ impl eframe::App for WebShell {
++    fn raw_input_hook(&mut self, ctx: &egui::Context, raw: &mut egui::RawInput) {
++        if let Some(workspace) = self.workspace.as_mut() {
++            workspace.raw_input(raw);
++        }
++        self.app.raw_input_hook(ctx, raw);
++    }
++
+     fn logic(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+         let dropped = ctx.input_mut(|i| std::mem::take(&mut i.raw.dropped_files));
+         for f in dropped {
+@@ -128,10 +159,17 @@ impl eframe::App for WebShell {
+             });
+         }
+         self.app.logic(ctx, frame);
++        if let Some(workspace) = self.workspace.as_mut() {
++            workspace.logic(&mut self.app, ctx);
++        }
+     }
+ 
+     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+-        self.app.ui(ui, frame);
++        if let Some(workspace) = self.workspace.as_mut() {
++            workspace.ui(&mut self.app, ui, frame);
++        } else {
++            self.app.ui(ui, frame);
++        }
+     }
+ }
+ 
+diff --git a/crates/ui-egui/src/lib.rs b/crates/ui-egui/src/lib.rs
+index 0cfcb94..e59a64e 100644
+--- a/crates/ui-egui/src/lib.rs
++++ b/crates/ui-egui/src/lib.rs
+@@ -126,6 +126,7 @@ mod timeline_ui;
+ mod titlebar;
+ pub mod tone;
+ pub mod tool_feedback;
++pub mod touch_ui;
+ pub mod transform_tex;
+ pub mod transform_tool;
+ pub mod type_panels_ui;
+@@ -1034,6 +1035,26 @@ impl eframe::App for PhotocraftApp {
+     }
+ 
+     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
++        self.ui_with_workspace(ui, |app, ui| {
++            panels::title_bar(app, ui);
++            if app.ui.panels.options_bar {
++                panels::options_bar(app, ui);
++            }
++            if app.ui.panels.status_bar {
++                panels::status_bar(app, ui);
++            }
++            if app.ui.panels.toolbar {
++                panels::toolbar(app, ui);
++            }
++            panels::right_dock(app, ui);
++        });
++    }
++}
++
++impl PhotocraftApp {
++    /// Draw the shared document canvas, dialogs and lifecycle using a host-owned workspace.
++    /// The callback allocates surrounding panels; engine behavior remains in this app.
++    pub fn ui_with_workspace(&mut self, ui: &mut egui::Ui, workspace: impl FnOnce(&mut Self, &mut egui::Ui)) {
+         let ctx = ui.ctx().clone();
+         i18n::set_current(i18n::Lang::from_pref(&self.session.prefs().interface.language));
+         // Fonts registered via set_fonts only take effect next frame; named families would panic now.
+@@ -1049,19 +1070,7 @@ impl eframe::App for PhotocraftApp {
+             let _ = menus::invoke(self, &ctx, "view.screenMode.standard", serde_json::json!({}));
+         }
+         if chrome {
+-            panels::title_bar(self, ui);
+-        }
+-        if chrome && self.ui.panels.options_bar {
+-            panels::options_bar(self, ui);
+-        }
+-        if chrome && self.ui.panels.status_bar {
+-            panels::status_bar(self, ui);
+-        }
+-        if chrome && self.ui.panels.toolbar {
+-            panels::toolbar(self, ui);
+-        }
+-        if chrome {
+-            panels::right_dock(self, ui);
++            workspace(self, ui);
+         }
+         let t = theme::Tokens::get(&ctx);
+         let backdrop = if chrome { prefs_ui::pasteboard_color(self).unwrap_or(t.canvas) } else { egui::Color32::BLACK };
+diff --git a/crates/ui-egui/src/touch_ui.rs b/crates/ui-egui/src/touch_ui.rs
+new file mode 100644
+index 0000000..bc10cba
+--- /dev/null
++++ b/crates/ui-egui/src/touch_ui.rs
+@@ -0,0 +1,35 @@
++//! Opt-in touch sizing for alternate workspaces. Desktop geometry stays unchanged.
++use egui::{Context, Id};
++
++pub fn set_enabled(ctx: &Context, enabled: bool) {
++    ctx.data_mut(|data| data.insert_temp(Id::new("pc-touch-ui"), enabled));
++    if enabled {
++        ctx.all_styles_mut(|style| {
++            style.spacing.interact_size.y = 44.0;
++            style.spacing.button_padding.y = 10.0;
++            style.spacing.item_spacing.y = 8.0;
++            style.spacing.combo_height = 320.0;
++        });
++    }
++}
++
++pub fn enabled(ctx: &Context) -> bool {
++    ctx.data(|data| data.get_temp(Id::new("pc-touch-ui"))).unwrap_or(false)
++}
++
++pub fn height(ui: &egui::Ui, desktop: f32) -> f32 {
++    if enabled(ui.ctx()) { desktop.max(44.0) } else { desktop }
++}
++
++#[cfg(test)]
++mod tests {
++    #[test]
++    fn touch_is_opt_in_and_scoped_to_context() {
++        let desktop = egui::Context::default();
++        let tablet = egui::Context::default();
++        super::set_enabled(&tablet, true);
++        assert!(super::enabled(&tablet));
++        assert!(!super::enabled(&desktop));
++        assert!(tablet.style_of(egui::Theme::Dark).spacing.interact_size.y >= 44.0);
++    }
++}

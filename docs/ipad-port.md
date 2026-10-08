@@ -1,14 +1,14 @@
-# iPad port acceptance
+# iPad workspace roadmap
 
-V's goal is the complete PhotoCraft workflow adapted for iPad and Apple Pencil, not a shortcut toolbar. Upstream engine limitations remain explicit; command availability is not Adobe feature parity.
+The goal is the complete PhotoCraft workflow adapted for iPad and Apple Pencil. Shared engine commands power a dedicated touch workspace.
 
 ## Repository and publication boundary
 
-The PhotoCraft fork owns reusable browser-host hooks and shared input fixes. This repository owns the Rust iPad workspace, touch/Pencil input adapter, local preview, and acceptance evidence. V explicitly wants local commits as work proceeds. Do not push, open PRs, or publish before reviewing repository copy with V. The public fork and empty private extension repository were created before this hold.
+The PhotoCraft fork owns reusable browser-host hooks and shared input fixes. This repository owns the Rust iPad workspace, touch/Pencil input adapter, local preview, and acceptance evidence. Source and release preparation are published to the private extension repository. Public visibility awaits V’s go-ahead; see [release preparation](release-preparation.md).
 
 ## Acceptance matrix
 
-| Surface | Implemented locally | Still required |
+| Surface | Implemented in v0.1 | Next |
 |---|---|---|
 | Hosting | Mac serves only public files on LAN, original and preview separated | Re-run scoped-server tests after changes |
 | Workspace | Touch rail, adaptive bottom/right inspector, contextual strip | Portrait, landscape, Split View, safe areas, keyboard checks |
@@ -25,4 +25,4 @@ The PhotoCraft fork owns reusable browser-host hooks and shared input fixes. Thi
 
 ## Preview evidence before workspace replacement
 
-Chrome: create, paint, undo/redo, panel toggle and PSD download verified. Original editor PSD saved and reopened with stroke intact. V tested the iPad preview and called it a good start. This is not evidence of all Pencil signals or complete iPad parity. iPadOS 26.3 Web Inspector connects over USB. The local implementation column includes changes awaiting an optimized preview build; see verification.md for the served/verified boundary.
+Chrome: create, paint, undo/redo, panel toggle and PSD download verified. Original editor PSD saved and reopened with stroke intact. V tested the iPad preview and called it a good start. iPadOS 26.3 Web Inspector connects over USB. See [verification](verification.md) for build and device test results.
