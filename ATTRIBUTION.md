@@ -12,6 +12,8 @@ The linked UI uses PhotoCraft's icon and font facilities. Its full asset invento
 is [upstream ATTRIBUTION.md](https://github.com/storytold/photocraft/blob/5896f0b63e6f342e0311920b4d2a0ea5a94330fc/ATTRIBUTION.md).
 No third-party fonts or ArtCraft brand marks are copied into this repository.
 The build includes the upstream NOTICE, asset inventory and license texts beside
-the compiled editor. Generated distributions stay out of Git.
+the compiled editor, including translation, magnetic-lasso and font notices.
+`scripts/package-notices.sh` generates `dependency-licenses.html` using cargo-about
+and the locked WebAssembly dependency graph. Generated distributions stay out of Git.
 
 See [visual sources and reproduction](docs/visuals.md) for capture details.

@@ -13,6 +13,10 @@ docs/brand/LICENSE-brand.txt.
 
 Third-party material
 
+This software is based in part on the work of the Independent JPEG Group.
+The jpeg-encoder dependency includes IJG-derived work; its complete notice is
+included in the generated dependency-licenses.html.
+
 This product bundles third-party material under its own licenses, listed below. The per-file
 list (author, source, license) is in ATTRIBUTION.md.
 

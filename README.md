@@ -49,6 +49,7 @@ recognize the other mobile and browser projects working nearby.
 
 You need Git, Rust **1.96 or newer**, the WebAssembly target, [Trunk](https://trunkrs.dev/)
 and [uv](https://docs.astral.sh/uv/). Tested with Rust 1.96.0 and Trunk 0.21.14.
+[cargo-about](https://github.com/EmbarkStudios/cargo-about) bundles dependency licenses.
 Choose a fresh parent directory; setup creates a sibling `photocraft` checkout.
 
 ```sh
@@ -56,6 +57,7 @@ git clone https://github.com/1puni/photocraft-ipad.git
 cd photocraft-ipad
 rustup target add wasm32-unknown-unknown
 cargo install trunk --version 0.21.14 --locked  # if not already installed
+cargo install cargo-about --version 0.9.2 --locked --features cli
 ./setup.sh
 ./build.sh
 uv run --no-project --python 3.12 python server.py
@@ -96,6 +98,7 @@ assistance; source, reviewable patches and test evidence live here together.
 
 MIT OR Apache-2.0, at your option: [MIT](LICENSE-MIT), [Apache-2.0](LICENSE-APACHE).
 Upstream copyright and notices are preserved in [NOTICE](NOTICE).
+[License review](docs/licensing.md) covers the code, assets and distribution.
 [ATTRIBUTION.md](ATTRIBUTION.md) records artwork and asset sources.
 PhotoCraft and ArtCraft belong to their respective authors; this is an independent
 adaptation. iPad and Apple Pencil are Apple trademarks.

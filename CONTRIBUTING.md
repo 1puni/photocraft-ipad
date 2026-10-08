@@ -13,8 +13,9 @@ request disguised as an upstream bug.
 The editor and input adapter are Rust. Document changes, add focused regressions
 for behavior changes, run `cargo fmt --check`, `cargo test --locked`,
 `cargo clippy --locked --all-targets --no-deps -- -D warnings`, and
-`cargo check --locked --target wasm32-unknown-unknown`. Use
-`CARGO_TARGET_DIR=../photocraft/target` to reuse the sibling build cache. Server
+`cargo check --locked --target wasm32-unknown-unknown`. Keep the default local
+`target/` directory: sharing a target with another extension checkout previously
+linked stale UI. Server
 changes also require `uv run --no-project --python 3.12 python -m unittest test_server`.
 Inspect changed UI at portrait, landscape and Split View widths. Distinguish
 synthetic input from physical Pencil evidence; include device/browser versions.
