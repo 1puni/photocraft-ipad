@@ -247,3 +247,36 @@ Redo reapplied the move. A subsequent outside drop changed neither order nor
 selection. The artwork stayed unchanged. Console capture has no errors and only
 the existing SetTheme warning. Existing review documents were preserved; the
 Mac/LAN preview remains on port 4876. Physical Pencil acceptance remains open.
+
+## Docked layer properties
+
+Implementation `8a38a53` replaces the layer-properties modal with an inspector
+mode beside the canvas. Back and the active-layer/paint-target caption remain
+pinned while controls scroll. Rename, blend, layer opacity, visibility and a
+two-column lock grid precede clearly scoped active-layer and selected-set
+actions. Mask controls link back to properties without retargeting the canvas.
+The existing properties commands also open this dock.
+
+All 73 tests, formatting, native Clippy with warnings denied and Wasm check pass.
+New coverage includes image/pixel-mask/vector/alpha/Quick Mask target preservation,
+rename Undo, a held opacity drag coalescing into one Undo step, portrait pinned
+navigation, Background gating and transitions between mask controls/properties.
+The opacity control has a distinct accessible label from brush opacity. The
+engine pin, six patches and dependencies are unchanged.
+
+The optimized build with locked notices completed at 18:54 UTC. Chrome opened
+the synthetic nested-group PSD. Dragging layer opacity from 100% to 39% visibly
+faded the artwork; one Undo restored its opacity. Renaming a group appeared in
+the stack. Opening properties on a pixel mask, scrolling its controls and
+switching to mask controls and back preserved the mask target. Back remained
+visible while scrolling. No console errors were captured; the existing SetTheme
+warning remains. Previous review documents were preserved and the preview stays
+on port 4876. Physical Pencil acceptance remains open.
+
+The browser check also reproduced an existing shared-engine history behavior:
+after selecting a different layer and editing its opacity, Undo restores the
+previous history state's selected layer rather than the live pre-edit selection.
+Opacity itself restores correctly. The dock does not introduce this behavior;
+the shared engine explicitly tests it. Improving selection capture for property
+edits is a separate history follow-up, and target preservation on Undo is not
+claimed for this batch.
