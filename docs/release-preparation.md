@@ -1,7 +1,7 @@
 # Public source release
 
 The maintainer authorized publication on 8 October 2026. The v0.1 source release
-includes the iPad workspace, five reproducible PhotoCraft patches, a local preview
+includes the iPad workspace, six reproducible PhotoCraft patches, a local preview
 and a standalone segmentation evaluation. Hosted demos remain a separate project.
 
 ## Release checks
@@ -20,24 +20,34 @@ and a standalone segmentation evaluation. Hosted demos remain a separate project
 ## Verified development snapshot — 8 October 2026
 
 Public source at
-[`872fac9`](https://github.com/1puni/photocraft-ipad/commit/872fac9ca3e62ef57021425215a96c30e29ee1d9)
+[`44dfbde`](https://github.com/1puni/photocraft-ipad/commit/44dfbde6195a5f81df7dc511bf44e366c58b42f7)
 includes the native-keyboard correction, Colour studio, docked mask controls,
-readable nested layer rows, welcome attribution, and single-layer/group Arrange
-with edge autoscroll. The README through `080d724` presents these workflows with
+readable nested layer rows, welcome attribution, and layer/group/selected-set
+Arrange with edge autoscroll. The README presents these workflows with
 attributed screenshots; [visual provenance](visuals.md) identifies their build.
 
-The merged source, build configuration and pins match tested implementation
-`9d60555`. All **62 tests**, formatting, native Clippy with warnings denied and
-Wasm check passed. The publication checkout independently passed the 62 tests.
-The optimized build and locked dependency notices completed at 18:20 UTC.
-Chrome acceptance on a synthetic 29-layer PSD covered normal row scrolling,
-handle-based movement at a scrolled position and Undo, with no console errors.
+The merged source, build configuration and pins match the tested batch
+(`2a2305f` UI, `bfc1ead` patch/pin). All **66 extension tests**, formatting,
+extension native Clippy with warnings denied and Wasm check passed.
+The publication checkout independently passed all 66 extension tests.
+The optimized build and locked dependency notices completed at 18:36 UTC.
+Chrome acceptance on a synthetic 29-layer PSD covered selected-pair movement,
+relative order and active-target preservation, one-step Undo/Redo and outside-drop
+cancellation, with no console errors.
 Continuous edge holds, offscreen targeting, cancellation and short portrait docks
 have synthetic UI coverage. Physical Pencil acceptance remains on the
-[roadmap](ipad-port.md), along with multi-layer dragging and the remaining port.
+[roadmap](ipad-port.md), along with the remaining port.
 
-The engine tree, five patches and dependency lockfile are unchanged. Detailed
-feature and browser evidence stays in the [test record](verification.md).
+The sixth patch extends the shared `layer.moveTo` command compatibly. A fresh
+local clone in the publication checkout independently reproduced the exact
+engine tree by applying all six patches to the unchanged upstream baseline.
+The first five patches, dependencies and lockfile are unchanged.
+
+Engine verification passed 779 non-ignored unit tests, integration/doc targets,
+architecture layering, Wasm and the opt-in adversarial-command test. Strict engine
+Clippy still reports pre-existing `nonminimal_bool` and `manual_range_contains`
+findings in unchanged code; it passes with only those two categories allowed.
+Detailed results and locations are in the [test record](verification.md#moving-selected-layers-together).
 
 ## First public development batch
 
@@ -52,8 +62,8 @@ and explicit panel drag scrolling.
 The implementation passed 32 tests, formatting, native Clippy, Wasm checks,
 the optimized build and locked dependency notice generation. Chrome acceptance
 covered stable search, cloned pixels and undo, selection copying, and a saved
-three-layer PSD reopened with its contents intact. The engine pin, five patches
-and dependency lockfile are unchanged. The [test record](verification.md#native-command-entry-source-picking-and-pencil-scrolling-correction)
+three-layer PSD reopened with its contents intact. That batch retained the then-current
+engine pin, five patches and dependency lockfile. The [test record](verification.md#native-command-entry-source-picking-and-pencil-scrolling-correction)
 contains the evidence; physical Pencil and native keyboard dictation acceptance
 remain on the roadmap.
 
@@ -61,10 +71,10 @@ remain on the roadmap.
 
 Use `main` for verified batches and topic branches for ongoing work. Fetch before
 pushing; preserve other contributors' work and merge diverged histories normally.
-Each checkout uses its own `target/` directory. Keep `upstream.env` and the five
+Each checkout uses its own `target/` directory. Keep `upstream.env` and the six
 engine patches synchronized, and regenerate dependency notices when dependencies
 change. The engine baseline is `5896f0b`; the patched tree is
-`7545cfe69924ec4f48fee63aa61ebf3ff82c48ac` (equivalent to `af949b1`).
+`6823804243a55b9bd987f15ba7c8b56cf71a4c3f` (equivalent to `21a573c`).
 
 [The roadmap](ipad-port.md) owns upcoming workflow and physical-device acceptance.
 [Security reports](../SECURITY.md) have a private reporting route. Upstream
