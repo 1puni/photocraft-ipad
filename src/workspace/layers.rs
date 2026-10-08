@@ -237,10 +237,6 @@ impl TabletUi {
         active: Option<LayerId>,
     ) {
         let t = Tokens::get(ui.ctx());
-        let is_active = active == Some(layer.id);
-        let paint = canvas::paint_target(app);
-        let image_target = is_active && paint == json!("pixels") && !app.ui.vector_mask_target;
-        let mask_target = is_active && paint == json!("mask");
         ui.push_id(layer.id.0, |ui| {
             Frame::NONE
                 .fill(if selected.contains(&layer.id) {
@@ -252,13 +248,23 @@ impl TabletUi {
                 .show(ui, |ui| {
                     ui.set_min_height(50.);
                     ui.spacing_mut().item_spacing.x = 2.;
+                    ui.spacing_mut().item_spacing.y = 0.;
+                    let indent = (depth as f32 * 10.).min(20.);
+                    let targets = 1
+                        + usize::from(layer.mask.is_some())
+                        + usize::from(layer.vector_mask.is_some());
+                    let group = matches!(layer.content, LayerContent::Group(_));
+                    // Keep the name readable before adding more fixed-width targets.
+                    // Width, not selection or name length, determines the row geometry.
+                    let fixed = 48. + indent + 46. * (targets + usize::from(group)) as f32;
+                    let stacked = ui.available_width() - fixed < 88.;
                     ui.horizontal(|ui| {
                         if navigation::icon_button(
                             ui,
                             if layer.visible { "eye" } else { "eye-off" },
                             &format!("Visibility: {}", layer.name),
                             false,
-                            40.,
+                            44.,
                         )
                         .clicked()
                         {
@@ -269,7 +275,7 @@ impl TabletUi {
                                 json!({"layer":layer.id.0,"visible":!layer.visible}),
                             );
                         }
-                        ui.add_space((depth as f32 * 10.).min(20.));
+                        ui.add_space(indent);
                         if let LayerContent::Group(group) = &layer.content
                             && navigation::icon_button(
                                 ui,
@@ -280,7 +286,7 @@ impl TabletUi {
                                 },
                                 &format!("Expand group: {}", layer.name),
                                 false,
-                                40.,
+                                44.,
                             )
                             .clicked()
                         {
@@ -291,29 +297,8 @@ impl TabletUi {
                                 json!({"layer":layer.id.0,"expanded":!group.expanded}),
                             );
                         }
-                        let image =
-                            thumbnail(app, ui, doc, layer, LayerTarget::Image, image_target);
-                        if image.clicked() {
-                            self.tap_layer_target(app, ui.ctx(), layer.id, LayerTarget::Image);
-                        }
-                        if layer.mask.is_some()
-                            && thumbnail(app, ui, doc, layer, LayerTarget::Mask, mask_target)
-                                .clicked()
-                        {
-                            self.tap_layer_target(app, ui.ctx(), layer.id, LayerTarget::Mask);
-                        }
-                        if layer.vector_mask.is_some()
-                            && thumbnail(
-                                app,
-                                ui,
-                                doc,
-                                layer,
-                                LayerTarget::Vector,
-                                is_active && app.ui.vector_mask_target,
-                            )
-                            .clicked()
-                        {
-                            self.tap_layer_target(app, ui.ctx(), layer.id, LayerTarget::Vector);
+                        if !stacked {
+                            self.layer_thumbnails(app, ui, doc, layer, active);
                         }
                         let suffix = if layer.locks.all {
                             " · locked"
@@ -322,12 +307,24 @@ impl TabletUi {
                         } else {
                             ""
                         };
-                        let response = ui.add_sized(
-                            [ui.available_width().max(20.), 48.],
-                            Button::new(egui::RichText::new(format!("{}{suffix}", layer.name)))
-                                .truncate()
-                                .frame(false),
-                        );
+                        let response = ui
+                            .scope_builder(
+                                egui::UiBuilder::new().id(egui::Id::new((
+                                    "ipad-layer-name",
+                                    doc.id.0,
+                                    layer.id.0,
+                                ))),
+                                |ui| {
+                                    ui.add_sized(
+                                        [ui.available_width().max(20.), 48.],
+                                        Button::new(())
+                                            .left_text(format!("{}{suffix}", layer.name))
+                                            .truncate()
+                                            .frame(false),
+                                    )
+                                },
+                            )
+                            .inner;
                         response.widget_info(|| {
                             egui::WidgetInfo::labeled(
                                 egui::WidgetType::Button,
@@ -355,8 +352,47 @@ impl TabletUi {
                             }
                         }
                     });
+                    if stacked {
+                        ui.horizontal(|ui| {
+                            ui.add_space(46. + indent);
+                            self.layer_thumbnails(app, ui, doc, layer, active);
+                        });
+                    }
                 });
         });
+    }
+
+    fn layer_thumbnails(
+        &mut self,
+        app: &mut PhotocraftApp,
+        ui: &mut Ui,
+        doc: &Document,
+        layer: &Layer,
+        active: Option<LayerId>,
+    ) {
+        let is_active = active == Some(layer.id);
+        let paint = canvas::paint_target(app);
+        for (target, present, selected) in [
+            (
+                LayerTarget::Image,
+                true,
+                is_active && paint == json!("pixels") && !app.ui.vector_mask_target,
+            ),
+            (
+                LayerTarget::Mask,
+                layer.mask.is_some(),
+                is_active && paint == json!("mask"),
+            ),
+            (
+                LayerTarget::Vector,
+                layer.vector_mask.is_some(),
+                is_active && app.ui.vector_mask_target,
+            ),
+        ] {
+            if present && thumbnail(app, ui, doc, layer, target, selected).clicked() {
+                self.tap_layer_target(app, ui.ctx(), layer.id, target);
+            }
+        }
     }
 
     fn layer_blending(
@@ -521,7 +557,7 @@ fn thumbnail(
     target: LayerTarget,
     selected: bool,
 ) -> egui::Response {
-    let (hit, response) = ui.allocate_exact_size(vec2(44., 48.), egui::Sense::click());
+    let (hit, _) = ui.allocate_exact_size(vec2(44., 48.), egui::Sense::hover());
     let rect = egui::Rect::from_center_size(hit.center(), vec2(34., 34.));
     let t = Tokens::get(ui.ctx());
     let label = match target {
@@ -529,6 +565,13 @@ fn thumbnail(
         LayerTarget::Mask => "Mask",
         LayerTarget::Vector => "Vector mask",
     };
+    // A width change can move thumbnails to another line while a pointer is down.
+    // Their identities must continue to describe targets, never layout positions.
+    let response = ui.interact(
+        hit,
+        egui::Id::new(("ipad-layer-target", doc.id.0, layer.id.0, label)),
+        egui::Sense::click(),
+    );
     response.widget_info(|| {
         egui::WidgetInfo::labeled(
             egui::WidgetType::Button,
@@ -612,4 +655,202 @@ fn thumbnail(
         }
     }
     response.on_hover_text(format!("{label}: {}", layer.name))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use egui_kittest::{
+        Harness,
+        kittest::{NodeT, Queryable},
+    };
+
+    const NAME: &str = "Foreground restoration with a very long descriptive name";
+
+    fn fixture(group: bool, masks: usize) -> PhotocraftApp {
+        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), Default::default());
+        app.run(
+            "file.new",
+            json!({"width":32,"height":32,"background":"transparent"}),
+        )
+        .unwrap();
+        if group {
+            app.run("layer.new.group", json!({"name":NAME})).unwrap();
+        } else {
+            app.run("layer.setProps", json!({"name":NAME})).unwrap();
+        }
+        if masks >= 1 {
+            app.run("layer.layerMask.revealAll", json!({})).unwrap();
+        }
+        if masks >= 2 {
+            app.run("layer.vectorMask.revealAll", json!({})).unwrap();
+        }
+        app
+    }
+
+    #[test]
+    fn crowded_rows_keep_readable_names_and_disjoint_full_size_targets() {
+        for width in [260., 280., 460., 740.] {
+            for group in [false, true] {
+                for masks in 0..=2 {
+                    for depth in [0, 2, 8] {
+                        let app = fixture(group, masks);
+                        let mut h =
+                            Harness::builder()
+                                .with_size(vec2(width + 16., 180.))
+                                .build_ui_state(
+                                    move |ui,
+                                          (app, w, bounds): &mut (
+                                        PhotocraftApp,
+                                        TabletUi,
+                                        egui::Rect,
+                                    )| {
+                                        let st = app.session.active().unwrap();
+                                        let doc = st.doc.clone();
+                                        let active = st.active_layer;
+                                        let selected = st.selected_layers().to_vec();
+                                        let layer = doc.layer(active.unwrap()).unwrap();
+                                        // Force a scrollbar: the row receives the actual content width.
+                                        ui.spacing_mut().scroll.floating = false;
+                                        ui.spacing_mut().scroll.bar_width = 14.;
+                                        ui.spacing_mut().scroll.bar_inner_margin = 6.;
+                                        *bounds = egui::ScrollArea::vertical()
+                                            .max_height(150.)
+                                            .show(ui, |ui| {
+                                                w.layer_row(
+                                                    app, ui, &doc, layer, depth, &selected, active,
+                                                );
+                                                ui.add_space(300.);
+                                            })
+                                            .inner_rect;
+                                    },
+                                    (app, TabletUi::default(), egui::Rect::NOTHING),
+                                );
+                        h.run_steps(3);
+                        let mut labels = vec![
+                            format!("Select layer: {NAME}"),
+                            format!("Visibility: {NAME}"),
+                            format!("Image: {NAME}"),
+                        ];
+                        if group {
+                            labels.push(format!("Expand group: {NAME}"));
+                        }
+                        if masks >= 1 {
+                            labels.push(format!("Mask: {NAME}"));
+                        }
+                        if masks >= 2 {
+                            labels.push(format!("Vector mask: {NAME}"));
+                        }
+                        let rects: Vec<_> = labels
+                            .iter()
+                            .map(|label| h.get_by_label(label).rect())
+                            .collect();
+                        let context =
+                            format!("width={width} group={group} masks={masks} depth={depth}");
+                        assert!(rects[0].width() >= 88., "name: {context} {:?}", rects[0]);
+                        for (i, rect) in rects.iter().enumerate() {
+                            assert!(
+                                rect.width() >= 44. && rect.height() >= 44.,
+                                "target: {context} {rect:?}"
+                            );
+                            assert!(
+                                rect.left() >= h.state().2.left()
+                                    && rect.right() <= h.state().2.right(),
+                                "bounds: {context} {rect:?}"
+                            );
+                            for other in &rects[..i] {
+                                let overlap = rect.intersect(*other);
+                                assert!(
+                                    overlap.width() <= 0. || overlap.height() <= 0.,
+                                    "overlap: {context} {rect:?} {other:?}"
+                                );
+                            }
+                        }
+                        let stacked = rects[2].top() > rects[0].bottom() - 0.5;
+                        if width == 260. && group && masks == 2 {
+                            assert!(stacked);
+                        }
+                        if width >= 460. {
+                            assert!(!stacked, "wide rows stay compact");
+                        }
+                        if width == 260. && group && masks == 2 && depth == 8 {
+                            let ids: Vec<_> = labels
+                                .iter()
+                                .map(|label| h.get_by_label(label).accesskit_node().id())
+                                .collect();
+                            h.set_size(vec2(756., 180.));
+                            h.run_steps(3);
+                            for (label, id) in labels.iter().zip(ids) {
+                                assert_eq!(
+                                    h.get_by_label(label).accesskit_node().id(),
+                                    id,
+                                    "resize changed {label} identity"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn revealing_a_nested_masked_group_shows_both_lines_and_targets_stay_independent() {
+        let mut app = fixture(true, 2);
+        let target = app.session.active().unwrap().active_layer.unwrap();
+        for i in 0..6 {
+            app.run("layer.groupLayers", json!({"name":format!("Parent {i}")}))
+                .unwrap();
+        }
+        let mut h = Harness::builder()
+            .with_size(vec2(1194., 834.))
+            .build_ui_state(
+                |ui, (app, w): &mut (PhotocraftApp, TabletUi)| w.show(app, ui),
+                (app, TabletUi::default()),
+            );
+        h.run_steps(3);
+        h.state_mut()
+            .0
+            .run("layer.select", json!({"layer":target.0}))
+            .unwrap();
+        h.run_steps(4);
+        let name = h.get_by_label(&format!("Select layer: {NAME}")).rect();
+        let image = h.get_by_label(&format!("Image: {NAME}")).rect();
+        let footer = h.get_by_label("New layer").rect();
+        assert!(name.width() >= 88.);
+        assert!(image.top() >= name.bottom());
+        assert!(name.top() >= h.get_by_label("Select multiple layers").rect().bottom());
+        assert!(image.bottom() <= footer.top());
+        let before = h.state().0.session.active().unwrap().doc.clone();
+        for (label, pixel, vector) in [
+            ("Mask", true, false),
+            ("Vector mask", false, true),
+            ("Image", false, false),
+        ] {
+            h.get_by_label(&format!("{label}: {NAME}")).click();
+            h.run_steps(3);
+            assert!(h.state().1.message.is_empty(), "{}", h.state().1.message);
+            assert_eq!(h.state().0.ui.mask_target, pixel);
+            assert_eq!(h.state().0.ui.vector_mask_target, vector);
+            assert_eq!(h.state().0.session.active().unwrap().doc, before);
+            assert_eq!(
+                h.get_by_label(&format!("Select layer: {NAME}")).rect(),
+                name
+            );
+            assert_eq!(h.get_by_label(&format!("Image: {NAME}")).rect(), image);
+        }
+        h.state_mut()
+            .0
+            .run("layer.setProps", json!({"layer":target.0,"name":"Short"}))
+            .unwrap();
+        h.run_steps(3);
+        assert_eq!(h.get_by_label("Select layer: Short").rect(), name);
+        assert_eq!(h.get_by_label("Image: Short").rect(), image);
+        h.get_by_label("Visibility: Short").click();
+        h.run_steps(3);
+        let st = h.state().0.session.active().unwrap();
+        assert!(!st.doc.layer(target).unwrap().visible);
+        assert_eq!(st.active_layer, Some(target));
+        assert!(!h.state().0.ui.mask_target && !h.state().0.ui.vector_mask_target);
+    }
 }
