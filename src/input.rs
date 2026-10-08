@@ -20,11 +20,14 @@ pub struct Contacts {
     pub navigation: Vec<Navigation>,
     pub pen_moves: Vec<Pos2>,
     pub cancelled_pen: Option<Pos2>,
+    pub ui_pointer: Option<i32>,
+    pub ui_touches: Vec<egui::Event>,
 }
 
 impl Contacts {
     /// Insert real Pencil motion before eframe's release; remove duplicate compatibility moves.
     pub fn augment_input(&mut self, raw: &mut egui::RawInput) {
+        raw.events.splice(0..0, self.ui_touches.drain(..));
         if !self.pen_moves.is_empty() {
             raw.events
                 .retain(|e| !matches!(e, egui::Event::PointerMoved(_)));
@@ -127,6 +130,30 @@ pub fn navigate(view: &mut photocraft_ui_egui::state::View, rect: Rect, flip: bo
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ui_touches_enable_kinetic_scrolling_without_becoming_pen_pressure() {
+        let mut contacts = Contacts::default();
+        contacts.ui_touches.push(egui::Event::Touch {
+            device_id: egui::TouchDeviceId(1),
+            id: egui::TouchId(3),
+            phase: egui::TouchPhase::Start,
+            pos: egui::pos2(20., 20.),
+            force: None,
+        });
+        let mut raw = egui::RawInput::default();
+        contacts.augment_input(&mut raw);
+        let mut stylus = photocraft_ui_egui::stylus::Stylus::default();
+        stylus.update(&raw.events);
+        assert!(stylus.sample().is_none());
+        let ctx = egui::Context::default();
+        ctx.run_ui(raw, |ui| {
+            assert!(ui.input(|input| input.has_touch_screen()))
+        })
+        .textures_delta
+        .clear();
+        assert!(contacts.ui_touches.is_empty());
+    }
 
     #[test]
     fn pen_motion_precedes_release_and_cancellation_releases_the_button() {

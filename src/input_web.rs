@@ -95,8 +95,37 @@ pub fn install(
                         e.prevent_default();
                         e.stop_immediate_propagation();
                         ctx.request_repaint();
-                    } else if kind == "pointerdown" || kind == "pointermove" || kind == "pointerup"
-                    {
+                    } else {
+                        let phase = match kind.as_str() {
+                            "pointerdown" => {
+                                c.ui_pointer = Some(id);
+                                Some(egui::TouchPhase::Start)
+                            }
+                            "pointermove" if c.ui_pointer == Some(id) => {
+                                Some(egui::TouchPhase::Move)
+                            }
+                            "pointerup" if c.ui_pointer == Some(id) => {
+                                c.ui_pointer = None;
+                                Some(egui::TouchPhase::End)
+                            }
+                            "pointercancel" | "lostpointercapture" if c.ui_pointer == Some(id) => {
+                                c.ui_pointer = None;
+                                c.cancelled_pen = Some(p);
+                                Some(egui::TouchPhase::Cancel)
+                            }
+                            _ => None,
+                        };
+                        if let Some(phase) = phase {
+                            // egui enables kinetic drag scrolling only after a real touch source
+                            // is reported. Force stays None: a UI finger is never a pressure pen.
+                            c.ui_touches.push(egui::Event::Touch {
+                                device_id: egui::TouchDeviceId(1),
+                                id: egui::TouchId(id as u64),
+                                phase,
+                                pos: p,
+                                force: None,
+                            });
+                        }
                         // UI sliders and menu taps still need motion after legacy TouchEvents were
                         // suppressed. These are outside the document gesture owned above.
                         c.pen_moves.push(p);
