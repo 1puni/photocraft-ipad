@@ -6,7 +6,7 @@ Layers, brushes, masks, channels and paths — with room for your hands.</p>
 <p align="center"><strong>v0.1</strong> · iPad browser workspace · MIT OR Apache-2.0<br>
 <a href="#build-and-try-locally">Build it</a> · <a href="docs/ipad-port.md">Roadmap</a> · <a href="CONTRIBUTING.md">Contribute</a> · <a href="https://github.com/storytold/photocraft">PhotoCraft upstream</a></p>
 
-<img src="public/images/workspace.jpg" alt="The PhotoCraft iPad workspace editing Hokusai’s Great Wave, with the touch tool rail and layer inspector." width="100%">
+<img src="public/images/workspace.jpg" alt="The current PhotoCraft iPad workspace with Hokusai’s Great Wave, pinned foreground/background colours, and separate image and mask targets in Layers." width="100%">
 
 <p align="center"><sub>The actual v0.1 browser workspace. Artwork: Hokusai, <em>The Great Wave off Kanagawa</em>, public domain.</sub></p>
 
@@ -17,23 +17,51 @@ preserves each sample's pressure and tilt, forwards coalesced samples when the
 browser provides them, suppresses palm contacts during drawing, and releases
 input on cancellation. Two fingers pan and pinch the canvas.
 
-**The controls come to you.** A touch tool rail, contextual options and an
-inspector that moves below the canvas in portrait and Split View. Use the grouped
-tool rail and familiar menu hierarchy; work with layers, groups, masks, channels,
-paths, colour and undo history. The brush studio exposes all 13 shared dynamics
-sections and a live stroke preview. New Document, Export and Layer Style have
-responsive touch layouts.
+**The controls come to you.** All 49 tools live in a grouped, scrollable rail,
+with contextual options and an inspector that moves below the canvas in portrait
+and Split View. Browse the familiar menu hierarchy or open search from the top
+bar. Search uses normal keyboard input, including the iPad keyboard's dictation;
+ambiguous names offer labelled choices.
+
+**Select, retouch, keep going.** Clone Stamp and Healing offer a one-shot
+**Set source** action: choose the source, then paint. Create a layer from selected
+pixels with **Layer via Copy/Cut**. Scroll panels by dragging, and keep image,
+mask and vector targets distinct. New Document, Export and Layer Style have
+responsive touch layouts. The [brush studio](public/images/brush-studio.jpg)
+exposes all 13 shared dynamics sections and a live stroke preview.
 
 **One editor engine.** PhotoCraft's Rust engine, canvas, file services and command
 system do the editing. This crate supplies the workspace and input adapter through
 a small browser-host seam. Edits follow the same command and undo paths. We link
 the core; we don't maintain another copy of it.
 
+## Colour, exactly where you want it
+
+Pinned foreground/background chips keep both colours visible. Colour studio
+combines a smooth saturation/value and hue picker with precise **RGB, HSB,
+Lab D50 and hex** entry. Each target remembers its hue through black and grey;
+switching numeric models preserves the chosen colour.
+
+Save named swatches in the browser and restore them in another workspace.
+Foreground changes also recolour selected type through PhotoCraft's shared
+editing command, with Undo.
+
+<img src="public/images/colour-studio.jpg" alt="Colour studio beside The Great Wave, showing separate foreground/background targets, Picker, Values and Swatches tabs, and a smooth blue saturation/value field." width="100%">
+
+## Masks beside the canvas
+
+Keep drawing while mask controls stay in the dock. Choose **Composite, Mask only
+or Overlay**, toggle Enabled and Linked, load a selection, invert, or apply and
+remove a mask. Vector masks expose path editing and conversion to a pixel mask.
+Switching targets finishes Quick Mask while preserving the selection you edited.
+
+Layers scroll independently above pinned actions. Nested groups and masked layers
+use compact or two-line rows to keep names readable and targets easy to hit;
+image and mask thumbnails stay distinct as the workspace resizes.
+
+<img src="public/images/mask-controls.jpg" alt="Docked pixel-mask controls beside The Great Wave, with Composite, Mask only, Overlay, Enabled, Linked, Load selection and Invert mask actions." width="100%">
+
 ## Built with PhotoCraft
-
-<img src="public/images/brush-studio.jpg" alt="The touch brush studio with a live stroke preview and PhotoCraft’s shared brush tip controls." width="100%">
-
-<p align="center"><sub>PhotoCraft’s brush controls, composed into a touch sheet.</sub></p>
 
 [PhotoCraft](https://github.com/storytold/photocraft), by the ArtCraft team and
 contributors, supplies the image editor underneath: its formats, rendering,
@@ -78,8 +106,9 @@ prevent stale application code from another checkout being linked.
 
 ## Where v0.1 goes next
 
-The workspace and input policies have automated coverage; browser checks cover
-create, paint, undo/redo, layer effects and export. The next pass is measured
+The workspace and input policies have automated coverage; browser checks include
+saved swatches, mask painting, retouching, layer targeting through resizing, and
+multi-layer PSD save/reopen. The next pass is measured
 physical Pencil testing, longer PSD workflows, remaining touch dialogs and
 recovery. The [roadmap](docs/ipad-port.md) and [test record](docs/verification.md)
 keep the detail in one place.
