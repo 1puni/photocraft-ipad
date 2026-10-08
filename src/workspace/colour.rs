@@ -349,15 +349,13 @@ impl TabletUi {
             ),
         };
         let mut changed = false;
-        egui::Grid::new("ipad-colour-values")
-            .num_columns(2)
-            .min_col_width(100.)
-            .show(ui, |ui| {
+        if ui.available_width() > 440. {
+            ui.columns(3, |columns| {
                 for i in 0..3 {
-                    ui.label(names[i]);
-                    let response = ui.add_sized(
-                        [96., 44.],
+                    let response = columns[i].add_sized(
+                        [columns[i].available_width(), 44.],
                         egui::DragValue::new(&mut values[i])
+                            .prefix(format!("{} ", names[i]))
                             .range(ranges[i].0..=ranges[i].1)
                             .clamp_existing_to_range(false)
                             .speed(0.5)
@@ -367,9 +365,31 @@ impl TabletUi {
                         egui::WidgetInfo::labeled(egui::WidgetType::DragValue, true, names[i])
                     });
                     changed |= response.changed();
-                    ui.end_row();
                 }
             });
+        } else {
+            egui::Grid::new("ipad-colour-values")
+                .num_columns(2)
+                .min_col_width(100.)
+                .show(ui, |ui| {
+                    for i in 0..3 {
+                        ui.label(names[i]);
+                        let response = ui.add_sized(
+                            [96., 44.],
+                            egui::DragValue::new(&mut values[i])
+                                .range(ranges[i].0..=ranges[i].1)
+                                .clamp_existing_to_range(false)
+                                .speed(0.5)
+                                .max_decimals(2),
+                        );
+                        response.widget_info(|| {
+                            egui::WidgetInfo::labeled(egui::WidgetType::DragValue, true, names[i])
+                        });
+                        changed |= response.changed();
+                        ui.end_row();
+                    }
+                });
+        }
         if changed {
             let next = match self.colour.model {
                 Model::Rgb => values.map(|v| v / 255.),
@@ -673,6 +693,22 @@ mod tests {
                     "{size:?} {label}"
                 );
                 assert_eq!(h.get_by_label("Picker").rect(), picker, "{size:?} {label}");
+                if label == "Values" {
+                    let footer = h
+                        .query_all_by_label("Tool settings")
+                        .map(|node| node.rect().top())
+                        .fold(0., f32::max);
+                    for channel in ["Red", "Green", "Blue"] {
+                        assert!(
+                            h.query_all_by_label(channel)
+                                .map(|node| node.rect().bottom())
+                                .reduce(f32::max)
+                                .expect("visible numeric channel")
+                                <= footer,
+                            "{size:?}: {channel} must be visible without scrolling"
+                        );
+                    }
+                }
             }
             for label in [
                 "Foreground",
