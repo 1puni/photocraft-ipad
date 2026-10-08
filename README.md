@@ -68,6 +68,8 @@ still scroll the stack.
 Layer properties stay in the dock too: rename, blend mode, opacity, visibility
 and locks, with Back pinned above the scrolling controls. Opening properties
 keeps your image or mask paint target active and leaves the canvas in reach.
+Undo restores an edit's pre-edit layer selection; an opacity drag stays one
+history step, and selecting a layer alone adds none.
 
 <img src="public/images/mask-controls.jpg" alt="Docked pixel-mask controls beside The Great Wave, with Composite, Mask only, Overlay, Enabled, Linked, Load selection and Invert mask actions." width="100%">
 
@@ -78,9 +80,9 @@ contributors, supplies the image editor underneath: its formats, rendering,
 brush engine and shared controls. This independent [1puni](https://1puni.com)
 project brings that foundation to a dedicated iPad workspace.
 
-Reusable engine improvements are kept as six reviewable patches: browser host
+Reusable engine improvements are kept as seven reviewable patches: browser host
 hooks, touch controls, batched pen fidelity, responsive dialogs, layer reveal,
-and multi-layer arrangement. Our
+multi-layer arrangement, and pre-edit selection restoration on Undo. Our
 [upstream notes](docs/upstream.md) explain the proposed contribution path and
 recognize the other mobile and browser projects working nearby.
 
