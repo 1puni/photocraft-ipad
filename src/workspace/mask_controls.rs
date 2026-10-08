@@ -1,7 +1,7 @@
 //! Mask editing stays beside the canvas; viewing and painting targets are distinct.
 use super::layers::LayerTarget;
 use super::*;
-use photocraft_doc::LayerId;
+use photocraft_doc::{Document, LayerId};
 use photocraft_engine::mask_view_cmds::{self, MaskViewMode};
 
 impl TabletUi {
@@ -144,6 +144,7 @@ impl TabletUi {
                 });
                 ui.label(if linked { "Moves with the layer." } else { "Moves independently of the layer." });
                 if !enabled { ui.label("This mask is not applied."); }
+                self.mask_adjustment_controls(app, ui, &doc, layer, target);
                 if target == LayerTarget::Vector {
                     ui.label("Path target · vector mask. Brushes paint the layer image.");
                     if full_button(ui,"Edit path",false).clicked() {
@@ -204,6 +205,126 @@ impl TabletUi {
             });
         true
     }
+
+    fn mask_adjustment_controls(
+        &mut self,
+        app: &mut PhotocraftApp,
+        ui: &mut Ui,
+        doc: &Document,
+        layer: &photocraft_doc::Layer,
+        target: LayerTarget,
+    ) {
+        let (prefix, kind, density, feather) = match target {
+            LayerTarget::Mask => {
+                let Some(mask) = &layer.mask else { return };
+                ("layer.layerMask", "pixel", mask.density, mask.feather)
+            }
+            LayerTarget::Vector => {
+                let Some(mask) = &layer.vector_mask else {
+                    return;
+                };
+                ("layer.vectorMask", "vector", mask.density, mask.feather)
+            }
+            LayerTarget::Image => return,
+        };
+        let density_label = format!(
+            "{} mask density (%)",
+            if kind == "pixel" { "Pixel" } else { "Vector" }
+        );
+        let mut density_percent = density * 100.;
+        let label = ui.label(&density_label);
+        let mut density_changed = false;
+        ui.horizontal(|ui| {
+            let value_width = 80.;
+            let slider_width =
+                (ui.available_width() - value_width - ui.spacing().item_spacing.x).max(44.);
+            let default_slider_width = ui.spacing().slider_width;
+            ui.spacing_mut().slider_width = slider_width;
+            let slider = ui
+                .add_sized(
+                    [slider_width, 44.],
+                    egui::Slider::new(&mut density_percent, 0.0..=100.0)
+                        .step_by(1.0)
+                        .show_value(false),
+                )
+                .labelled_by(label.id);
+            ui.spacing_mut().slider_width = default_slider_width;
+            density_changed |= slider.changed();
+            density_changed |= ui
+                .add_sized(
+                    [value_width, 44.],
+                    egui::DragValue::new(&mut density_percent)
+                        .range(0.0..=100.0)
+                        .speed(1.0)
+                        .fixed_decimals(0)
+                        .suffix("%"),
+                )
+                .labelled_by(label.id)
+                .changed();
+        });
+        if density_changed {
+            self.invoke(
+                app,
+                ui.ctx(),
+                &format!("{prefix}.edit"),
+                json!({
+                    "layer": layer.id.0,
+                    "density": density_percent,
+                    "coalesce": format!("ipad-mask:{}:{}:{kind}:density:{}", doc.id.0, layer.id.0, self.edit_gesture),
+                }),
+            );
+        }
+        let feather_label = format!(
+            "{} mask feather (px)",
+            if kind == "pixel" { "Pixel" } else { "Vector" }
+        );
+        let mut next_feather = feather;
+        let label = ui.label(&feather_label);
+        let mut feather_changed = false;
+        ui.horizontal(|ui| {
+            let value_width = 80.;
+            let slider_width =
+                (ui.available_width() - value_width - ui.spacing().item_spacing.x).max(44.);
+            let default_slider_width = ui.spacing().slider_width;
+            ui.spacing_mut().slider_width = slider_width;
+            let slider = ui
+                .add_sized(
+                    [slider_width, 44.],
+                    egui::Slider::new(&mut next_feather, 0.0..=1000.0)
+                        .logarithmic(true)
+                        .smallest_positive(0.1)
+                        .show_value(false),
+                )
+                .labelled_by(label.id);
+            ui.spacing_mut().slider_width = default_slider_width;
+            feather_changed |= slider.changed();
+            feather_changed |= ui
+                .add_sized(
+                    [value_width, 44.],
+                    egui::DragValue::new(&mut next_feather)
+                        .range(0.0..=1000.0)
+                        .speed(0.1)
+                        .min_decimals(1)
+                        .max_decimals(2)
+                        .suffix(" px"),
+                )
+                .labelled_by(label.id)
+                .changed();
+        });
+        if feather_changed {
+            self.invoke(
+                app,
+                ui.ctx(),
+                &format!("{prefix}.edit"),
+                json!({
+                    "layer": layer.id.0,
+                    "feather": next_feather,
+                    "coalesce": format!("ipad-mask:{}:{}:{kind}:feather:{}", doc.id.0, layer.id.0, self.edit_gesture),
+                }),
+            );
+        }
+        ui.label("Feather softens the mask edge; 0 px keeps it crisp.");
+    }
 }
 
 #[cfg(test)]
@@ -245,6 +366,242 @@ mod tests {
         h.run_steps(3);
         assert!(h.state().1.message.is_empty(), "{}", h.state().1.message);
         h
+    }
+
+    fn drag_control(
+        h: &mut Harness<'static, (PhotocraftApp, TabletUi)>,
+        label: &str,
+        fraction: f32,
+    ) {
+        {
+            let control = h.get_by_role_and_label(egui::accesskit::Role::Slider, label);
+            control.scroll_to_me();
+        }
+        h.run_steps(3);
+        let rect = h
+            .get_by_role_and_label(egui::accesskit::Role::Slider, label)
+            .rect();
+        let start = egui::pos2(rect.right() - 8., rect.center().y);
+        let end = egui::pos2(rect.left() + rect.width() * fraction, rect.center().y);
+        h.hover_at(start);
+        h.run_steps(1);
+        h.drag_at(start);
+        h.run_steps(1);
+        h.hover_at(end);
+        h.run_steps(2);
+        h.drop_at(end);
+        h.run_steps(3);
+    }
+
+    fn mask_controls_app() -> PhotocraftApp {
+        let mut app = app();
+        app.run("layer.vectorMask.revealAll", json!({})).unwrap();
+        app
+    }
+
+    fn select_mask_target(h: &mut Harness<'static, (PhotocraftApp, TabletUi)>, vector: bool) {
+        if vector {
+            h.get_by_label("Vector mask").click();
+            h.run_steps(3);
+        }
+    }
+
+    #[test]
+    fn mask_density_and_feather_drags_undo_once_without_touching_other_pixels_or_masks() {
+        for (vector, control, label) in [
+            (false, "density", "Pixel mask density (%)"),
+            (false, "feather", "Pixel mask feather (px)"),
+            (true, "density", "Vector mask density (%)"),
+            (true, "feather", "Vector mask feather (px)"),
+        ] {
+            let app = mask_controls_app();
+            let layer = app.session.active().unwrap().active_layer.unwrap();
+            let mut h = harness(app, vec2(1194., 834.));
+            select_mask_target(&mut h, vector);
+            let before_target = photocraft_ui_egui::canvas::paint_target(&h.state().0);
+            let before = h.state().0.session.active().unwrap().doc.clone();
+            let image = before.layer(layer).unwrap().surface().unwrap().clone();
+            let pixel_mask = before.layer(layer).unwrap().mask.clone().unwrap();
+            let vector_mask = before.layer(layer).unwrap().vector_mask.clone().unwrap();
+            let disabled = if vector {
+                "layer.vectorMask.enabled"
+            } else {
+                "layer.layerMask.enabled"
+            };
+            h.state_mut()
+                .0
+                .run(disabled, json!({"layer":layer.0,"enabled":false}))
+                .unwrap();
+            h.run_steps(3);
+            assert!(h.query_by_label("This mask is not applied.").is_some());
+            let before = h.state().0.session.active().unwrap().doc.clone();
+            let before_steps = h.state().0.session.active().unwrap().history.past_len();
+            let fraction = if control == "density" { 0.45 } else { 0.55 };
+            drag_control(&mut h, label, fraction);
+
+            let st = h.state().0.session.active().unwrap();
+            let edited_layer = st.doc.layer(layer).unwrap();
+            assert_eq!(edited_layer.surface().unwrap(), &image);
+            if vector {
+                assert_eq!(edited_layer.mask.as_ref().unwrap(), &pixel_mask);
+                let edited = edited_layer.vector_mask.as_ref().unwrap();
+                assert!(!edited.enabled);
+                let (actual, original) = if control == "density" {
+                    (edited.density, vector_mask.density)
+                } else {
+                    (edited.feather, vector_mask.feather)
+                };
+                assert_ne!(actual, original, "{label} drag did not change the value");
+                assert_eq!(edited.path, vector_mask.path);
+            } else {
+                assert_eq!(edited_layer.vector_mask.as_ref().unwrap(), &vector_mask);
+                let edited = edited_layer.mask.as_ref().unwrap();
+                assert!(!edited.enabled);
+                let (actual, original) = if control == "density" {
+                    (edited.density, pixel_mask.density)
+                } else {
+                    (edited.feather, pixel_mask.feather)
+                };
+                assert_ne!(actual, original, "{label} drag did not change the value");
+                assert_eq!(edited.surface, pixel_mask.surface);
+            }
+            assert_eq!(
+                st.history.past_len(),
+                before_steps + 1,
+                "{label} should coalesce per drag"
+            );
+            assert_eq!(
+                photocraft_ui_egui::canvas::paint_target(&h.state().0),
+                before_target
+            );
+
+            h.state_mut().0.run("edit.undo", json!({})).unwrap();
+            assert_eq!(
+                h.state().0.session.active().unwrap().doc,
+                before,
+                "{label} undo"
+            );
+            assert_eq!(
+                photocraft_ui_egui::canvas::paint_target(&h.state().0),
+                before_target
+            );
+        }
+    }
+
+    #[test]
+    fn mask_tabs_load_each_masks_latest_density_and_feather_values() {
+        let mut app = mask_controls_app();
+        let layer = app.session.active().unwrap().active_layer.unwrap();
+        app.run(
+            "layer.layerMask.edit",
+            json!({"layer":layer.0,"density":35,"feather":4}),
+        )
+        .unwrap();
+        app.run(
+            "layer.vectorMask.edit",
+            json!({"layer":layer.0,"density":82,"feather":64}),
+        )
+        .unwrap();
+        let mut h = harness(app, vec2(507., 768.));
+        assert_eq!(
+            h.get_by_role_and_label(egui::accesskit::Role::Slider, "Pixel mask density (%)")
+                .accesskit_node()
+                .numeric_value(),
+            Some(35.0)
+        );
+        assert_eq!(
+            h.get_by_role_and_label(egui::accesskit::Role::Slider, "Pixel mask feather (px)")
+                .accesskit_node()
+                .numeric_value(),
+            Some(4.0)
+        );
+        h.get_by_label("Vector mask").click();
+        h.run_steps(3);
+        assert_eq!(
+            h.get_by_role_and_label(egui::accesskit::Role::Slider, "Vector mask density (%)")
+                .accesskit_node()
+                .numeric_value(),
+            Some(82.0)
+        );
+        assert_eq!(
+            h.get_by_role_and_label(egui::accesskit::Role::Slider, "Vector mask feather (px)")
+                .accesskit_node()
+                .numeric_value(),
+            Some(64.0)
+        );
+        h.get_by_label("Pixel mask").click();
+        h.run_steps(3);
+        assert_eq!(
+            h.get_by_role_and_label(egui::accesskit::Role::Slider, "Pixel mask density (%)")
+                .accesskit_node()
+                .numeric_value(),
+            Some(35.0)
+        );
+    }
+
+    #[test]
+    fn feather_numeric_entry_accepts_exact_pixel_radius_and_undoes_once() {
+        let mut h = harness(mask_controls_app(), vec2(507., 768.));
+        let layer = h.state().0.session.active().unwrap().active_layer.unwrap();
+        let before = h.state().0.session.active().unwrap().doc.clone();
+        let before_steps = h.state().0.session.active().unwrap().history.past_len();
+        {
+            let field = h.get_by_role_and_label(
+                egui::accesskit::Role::SpinButton,
+                "Pixel mask feather (px)",
+            );
+            field.focus();
+        }
+        h.run_steps(1);
+        assert!(
+            h.get_by_role_and_label(egui::accesskit::Role::SpinButton, "Pixel mask feather (px)")
+                .is_focused()
+        );
+        h.get_by_role_and_label(egui::accesskit::Role::SpinButton, "Pixel mask feather (px)")
+            .type_text("12.5");
+        h.run_steps(1);
+        h.key_press(egui::Key::Enter);
+        h.run_steps(3);
+
+        assert_eq!(
+            h.state()
+                .0
+                .session
+                .active()
+                .unwrap()
+                .doc
+                .layer(layer)
+                .unwrap()
+                .mask
+                .as_ref()
+                .unwrap()
+                .feather,
+            12.5
+        );
+        assert_eq!(
+            h.state().0.session.active().unwrap().history.past_len(),
+            before_steps + 1
+        );
+        h.state_mut().0.run("edit.undo", json!({})).unwrap();
+        assert_eq!(h.state().0.session.active().unwrap().doc, before);
+    }
+
+    #[test]
+    fn mask_adjustments_scroll_in_portrait_without_moving_pinned_navigation() {
+        let mut h = harness(mask_controls_app(), vec2(507., 768.));
+        let back = h.get_by_label("Back to layers").rect();
+        let tabs = h.get_by_label("Pixel mask").rect();
+        let control =
+            h.get_by_role_and_label(egui::accesskit::Role::Slider, "Pixel mask feather (px)");
+        control.scroll_to_me();
+        h.run_steps(3);
+        let feather = h
+            .get_by_role_and_label(egui::accesskit::Role::Slider, "Pixel mask feather (px)")
+            .rect();
+        assert!(feather.height() >= 44.);
+        assert!(feather.left() >= 0. && feather.right() <= 507.);
+        assert_eq!(h.get_by_label("Back to layers").rect(), back);
+        assert_eq!(h.get_by_label("Pixel mask").rect(), tabs);
     }
 
     #[test]
