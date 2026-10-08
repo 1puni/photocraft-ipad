@@ -11,6 +11,7 @@ serde_json = "1"
 photocraft-ui-egui = { path = "../photocraft/crates/ui-egui" }
 photocraft-doc = { path = "../photocraft/crates/doc" }
 photocraft-color = { path = "../photocraft/crates/color" }
+photocraft-engine = { path = "../photocraft/crates/engine" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 photocraft-web = { path = "../photocraft/apps/photocraft-web", features = ["heif"] }
@@ -19,11 +20,11 @@ wasm-bindgen = "0.2"
 js-sys = "0.3"
 web-sys = { version = "0.3", features = ["HtmlCanvasElement", "PointerEvent", "DomRect", "Event"] }
 
-[dev-dependencies]
-photocraft-engine = { path = "../photocraft/crates/engine" }
-
 [lints.rust]
 unsafe_code = "forbid"
+
+[dev-dependencies]
+egui_kittest = "=0.36.2"
 
 [profile.dev]
 opt-level = 1

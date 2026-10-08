@@ -4,6 +4,14 @@ use photocraft_ui_egui::{brush_panel, color_picker_ui};
 impl TabletUi {
     pub(super) fn layers(&mut self, app: &mut PhotocraftApp, ui: &mut Ui) {
         ui.horizontal_wrapped(|ui| {
+            if button(ui, "Channels", false).clicked() {
+                self.open_sheet(Sheet::Channels);
+            }
+            if button(ui, "Paths", false).clicked() {
+                self.open_sheet(Sheet::Paths);
+            }
+        });
+        ui.horizontal_wrapped(|ui| {
             self.command(app, ui, "+ Layer", "layer.new.layer");
             self.command(app, ui, "+ Group", "layer.new.group");
             if button(ui, "Select multiple", self.multi_select).clicked() {
@@ -18,6 +26,7 @@ impl TabletUi {
         let selected = st.selected_layers().to_vec();
         let active = st.active_layer;
         for (depth, layer) in photocraft_ui_egui::layer_tree_ui::display_rows(&doc, false) {
+            let thumbnail = app.layer_thumb(ui.ctx(), &doc, layer);
             ui.push_id(layer.id.0,|ui|{
                 ui.horizontal(|ui|{
                     ui.add_space((depth as f32*12.).min(48.));
@@ -28,9 +37,10 @@ impl TabletUi {
                         && button(ui,if group.expanded{"−"}else{"+"},false).clicked(){
                             self.invoke(app,ui.ctx(),"layer.setExpanded",json!({"layer":layer.id.0,"expanded":!group.expanded}));
                         }
-                    if ui.add_sized([ui.available_width().max(44.),48.],Button::new(&layer.name).selected(selected.contains(&layer.id))).clicked(){
+                    if ui.add_sized([ui.available_width().max(44.),48.],Button::image_and_text(egui::Image::new((thumbnail,vec2(32.,32.))),&layer.name).selected(selected.contains(&layer.id))).clicked(){
                         self.invoke(app,ui.ctx(),"layer.select",json!({"layer":layer.id.0,"mode":if self.multi_select{"toggle"}else{"replace"}}));
                         app.ui.mask_target=false;
+                        app.ui.vector_mask_target=false;
                     }
                 });
             });
@@ -38,35 +48,60 @@ impl TabletUi {
         if let Some(layer) = active.and_then(|id| doc.layer(id)) {
             ui.separator();
             ui.strong(&layer.name);
-            let mut opacity = layer.opacity;
-            if ui
-                .add(egui::Slider::new(&mut opacity, 0.0..=1.).text("Opacity"))
-                .changed()
-            {
-                self.invoke(
-                    app,
-                    ui.ctx(),
-                    "layer.setProps",
-                    json!({"layer":layer.id.0,"opacity":opacity}),
-                );
+            let background = photocraft_ui_egui::doc_props_ui::is_background(&doc, layer);
+            let key = (doc.id.0, layer.id.0);
+            if self.rename_layer != Some(key) {
+                self.rename_layer = Some(key);
+                self.layer_name = layer.name.clone();
             }
-            egui::ComboBox::from_id_salt("ipad-layer-blend")
-                .selected_text(layer.blend.label())
-                .width(200.)
-                .show_ui(ui, |ui| {
-                    for mode in photocraft_color::BlendMode::LAYER_MODES {
-                        if full_button(ui, mode.label(), layer.blend == mode).clicked() {
-                            self.invoke(
-                                app,
-                                ui.ctx(),
-                                "layer.setProps",
-                                json!({"layer":layer.id.0,"blend":mode}),
-                            );
-                        }
-                    }
-                });
             ui.horizontal_wrapped(|ui| {
-                if button(ui, "Lock", layer.locks.all).clicked() {
+                ui.add_sized(
+                    [160., 44.],
+                    egui::TextEdit::singleline(&mut self.layer_name),
+                );
+                if button(ui, "Rename", false).clicked() {
+                    self.invoke(
+                        app,
+                        ui.ctx(),
+                        "layer.setProps",
+                        json!({"layer":layer.id.0,"name":self.layer_name.trim()}),
+                    );
+                }
+            });
+            ui.add_enabled_ui(!background, |ui| {
+                let mut opacity = layer.opacity;
+                if ui
+                    .add(egui::Slider::new(&mut opacity, 0.0..=1.).text("Opacity"))
+                    .changed()
+                {
+                    self.invoke(
+                        app,
+                        ui.ctx(),
+                        "layer.setProps",
+                    json!({"layer":layer.id.0,"opacity":opacity,"coalesce":format!("ipad-opacity:{}:{}:{}",doc.id.0,layer.id.0,self.edit_gesture)}),
+                );
+                if !ui.input(|input| input.pointer.any_down()) { self.edit_gesture = self.edit_gesture.wrapping_add(1); }
+                }
+                egui::ComboBox::from_id_salt("ipad-layer-blend")
+                    .selected_text(layer.blend.label())
+                    .width(200.)
+                    .show_ui(ui, |ui| {
+                        for mode in photocraft_color::BlendMode::LAYER_MODES {
+                            if full_button(ui, mode.label(), layer.blend == mode).clicked() {
+                                self.invoke(
+                                    app,
+                                    ui.ctx(),
+                                    "layer.setProps",
+                                    json!({"layer":layer.id.0,"blend":mode}),
+                                );
+                            }
+                        }
+                    });
+            });
+            ui.horizontal_wrapped(|ui| {
+                if background && button(ui, "Unlock background", false).clicked() {
+                    self.invoke(app, ui.ctx(), "layer.new.layerFromBackground", json!({}));
+                } else if !background && button(ui, "Lock all", layer.locks.all).clicked() {
                     self.invoke(
                         app,
                         ui.ctx(),
@@ -74,13 +109,20 @@ impl TabletUi {
                         json!({"layer":layer.id.0,"locks":{"all":!layer.locks.all}}),
                     );
                 }
+                if !background && button(ui, "Lock alpha", layer.locks.transparency).clicked() {
+                    self.invoke(app, ui.ctx(), "layer.setProps", json!({"layer":layer.id.0,"locks":{"transparency":!layer.locks.transparency}}));
+                }
                 self.command(app, ui, "Duplicate", "layer.duplicate");
                 self.command(app, ui, "Delete", "layer.delete");
                 self.command(app, ui, "Raise", "layer.arrange.bringForward");
                 self.command(app, ui, "Lower", "layer.arrange.sendBackward");
+                self.command(app, ui, "Clip", "layer.createClippingMask");
+                self.command(app, ui, "Effects…", "layer.layerStyle.blendingOptions");
                 if layer.mask.is_some() {
                     if button(ui, "Paint mask", app.ui.mask_target).clicked() {
+                        self.invoke(app, ui.ctx(), "channel.target", json!({"channel":"composite"}));
                         app.ui.mask_target = !app.ui.mask_target;
+                        app.ui.vector_mask_target = false;
                     }
                 } else {
                     self.command(app, ui, "Add mask", "layer.layerMask.revealAll");
@@ -93,6 +135,9 @@ impl TabletUi {
         }
     }
     pub(super) fn brush(&mut self, app: &mut PhotocraftApp, ui: &mut Ui) {
+        if full_button(ui, "All brush dynamics & preview…", false).clicked() {
+            self.open_sheet(Sheet::Brush);
+        }
         let before = app.session.tools.brush.clone();
         let mut b = before.clone();
         ui.strong("Brush tip");
@@ -287,5 +332,71 @@ impl TabletUi {
                 }
             }
         }
+    }
+}
+
+impl TabletUi {
+    pub(super) fn brush_studio(&mut self, app: &mut PhotocraftApp, ui: &mut Ui) {
+        let before = app.session.tools.brush.clone();
+        let mut brush = before.clone();
+        let tokens = Tokens::get(ui.ctx());
+        let width = ui.available_width().clamp(1., 600.);
+        let texture = photocraft_ui_egui::brush_preview::stroke_texture(
+            ui.ctx(),
+            "ipad-brush-preview",
+            &brush,
+            width as u32,
+            80,
+            tokens.text,
+        );
+        ui.add(egui::Image::new((texture.id(), vec2(width, 80.))));
+        egui::ComboBox::from_id_salt("ipad-brush-section")
+            .width(width - 32.)
+            .selected_text(
+                brush_panel::SECTIONS
+                    .get(app.ui.brush_section)
+                    .map_or("Brush Tip Shape", |s| s.0),
+            )
+            .show_ui(ui, |ui| {
+                for (i, (label, _)) in brush_panel::SECTIONS.iter().enumerate() {
+                    if full_button(ui, label, app.ui.brush_section == i).clicked() {
+                        app.ui.brush_section = i;
+                    }
+                }
+            });
+        let section = app.ui.brush_section.min(brush_panel::SECTIONS.len() - 1);
+        if let Some(enabled) = brush_panel::section_flag(&mut brush, section) {
+            ui.checkbox(enabled, "Enable this section");
+        }
+        if let Some(locked) = brush_panel::section_lock(&mut brush, section) {
+            ui.checkbox(locked, "Keep these settings when switching presets");
+        }
+        let enabled = brush_panel::section_flag(&mut brush, section).is_none_or(|enabled| *enabled);
+        ui.add_enabled_ui(enabled, |ui| {
+            brush_panel::section_body(ui, &mut brush, section, &app.session.tools.presets)
+        });
+        brush_panel::commit_gesture(app, ui.ctx(), &before, &brush);
+        ui.separator();
+        ui.label("Save these settings as a preset");
+        ui.horizontal_wrapped(|ui| {
+            ui.add_sized(
+                [220., 44.],
+                egui::TextEdit::singleline(&mut self.brush_name),
+            );
+            if ui
+                .add_enabled(
+                    !self.brush_name.trim().is_empty(),
+                    Button::new("Save preset").min_size(vec2(100., 44.)),
+                )
+                .clicked()
+            {
+                self.invoke(
+                    app,
+                    ui.ctx(),
+                    "brush.presets.save",
+                    json!({"name":self.brush_name.trim()}),
+                );
+            }
+        });
     }
 }

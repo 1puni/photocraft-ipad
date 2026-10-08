@@ -7,15 +7,21 @@ impl TabletUi {
             Sheet::Tools => "Tools",
             Sheet::Commands => "Commands",
             Sheet::Files => "Documents & files",
+            Sheet::Brush => "Brush studio",
+            Sheet::Channels => "Channels",
+            Sheet::Paths => "Paths",
         };
         let width = (ctx.content_rect().width() - 40.).clamp(240., 640.);
         let modal=egui::Modal::new(egui::Id::new("ipad-sheet")).show(ctx,|ui|{
             ui.set_width(width);
             ui.spacing_mut().interact_size=vec2(44.,44.);
             ui.horizontal(|ui|{ui.heading(title);if button(ui,"Close",false).clicked(){close=true;}});
-            if sheet!=Sheet::Files{ui.add_sized([width,44.],egui::TextEdit::singleline(&mut self.search).hint_text("Search…"));}
+            if matches!(sheet,Sheet::Tools|Sheet::Commands){ui.add_sized([width,44.],egui::TextEdit::singleline(&mut self.search).hint_text("Search…"));}
             egui::ScrollArea::vertical().max_height((ctx.content_rect().height()-180.).max(120.)).show(ui,|ui|{
                 match sheet{
+                    Sheet::Brush => self.brush_studio(app,ui),
+                    Sheet::Channels => self.channels(app,ui),
+                    Sheet::Paths => self.paths(app,ui),
                     Sheet::Tools=>{
                         let query=self.search.to_lowercase();
                         let columns=(width/160.).floor().max(1.)as usize;

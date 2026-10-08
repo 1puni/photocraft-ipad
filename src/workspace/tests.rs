@@ -117,3 +117,75 @@ fn every_tool_inspector_fits_split_view() {
         );
     }
 }
+
+#[test]
+fn every_brush_section_opens_without_mutating_the_brush() {
+    for section in 0..photocraft_ui_egui::brush_panel::SECTIONS.len() {
+        let ctx = egui::Context::default();
+        PhotocraftApp::setup_context(&ctx, photocraft_ui_egui::theme::ThemeKind::Pro);
+        photocraft_ui_egui::touch_ui::set_enabled(&ctx, true);
+        let mut app = app();
+        app.ui.brush_section = section;
+        let before = app.session.tools.brush.clone();
+        let mut workspace = TabletUi {
+            sheet: Some(Sheet::Brush),
+            ..Default::default()
+        };
+        for _ in 0..3 {
+            let raw = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    vec2(507., 768.),
+                )),
+                ..Default::default()
+            };
+            ctx.run_ui(raw, |ui| workspace.show(&mut app, ui))
+                .textures_delta
+                .clear();
+        }
+        assert_eq!(
+            app.session.tools.brush, before,
+            "section {section} mutated on display"
+        );
+    }
+}
+
+#[test]
+fn channel_controls_target_duplicate_and_undo_through_real_widgets() {
+    use egui_kittest::{Harness, kittest::Queryable};
+    let mut app = app();
+    app.run("file.new", json!({"width":32,"height":32}))
+        .unwrap();
+    let workspace = TabletUi::default();
+    let mut h = Harness::builder()
+        .with_size(vec2(1194., 834.))
+        .build_ui_state(
+            |ui, (app, workspace): &mut (PhotocraftApp, TabletUi)| workspace.show(app, ui),
+            (app, workspace),
+        );
+    PhotocraftApp::setup_context(&h.ctx, photocraft_ui_egui::theme::ThemeKind::Pro);
+    photocraft_ui_egui::touch_ui::set_enabled(&h.ctx, true);
+    h.run_steps(3);
+    h.get_by_label("Channels").click();
+    h.run_steps(3);
+    h.get_by_label("New alpha channel").click();
+    h.run_steps(3);
+    let name = h.state().0.session.active().unwrap().doc.channels[0]
+        .name
+        .clone();
+    h.get_by_label(&name).click();
+    h.run_steps(3);
+    assert_eq!(
+        h.state().0.session.active().unwrap().channel_view.target,
+        photocraft_engine::channel_cmds::ChannelTarget::Alpha(0)
+    );
+    h.get_by_label("Duplicate channel").click();
+    h.run_steps(3);
+    assert!(h.state().1.message.is_empty(), "{}", h.state().1.message);
+    assert_eq!(h.state().0.session.active().unwrap().doc.channels.len(), 2);
+    h.get_by_label("Close").click();
+    h.run_steps(3);
+    h.get_by_label("Undo").click();
+    h.run_steps(3);
+    assert_eq!(h.state().0.session.active().unwrap().doc.channels.len(), 1);
+}

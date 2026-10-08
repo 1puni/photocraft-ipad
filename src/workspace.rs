@@ -1,4 +1,5 @@
 //! Touch chrome. Document edits always use the shared command path.
+mod channels_paths;
 mod inspectors;
 mod options;
 mod sheets;
@@ -21,6 +22,9 @@ pub enum Sheet {
     Tools,
     Commands,
     Files,
+    Brush,
+    Channels,
+    Paths,
 }
 
 pub struct TabletUi {
@@ -35,6 +39,12 @@ pub struct TabletUi {
     color_hex: String,
     color_hue: f32,
     color_source: Option<[f32; 4]>,
+    brush_name: String,
+    path_name: String,
+    rename_layer: Option<(u64, u64)>,
+    layer_name: String,
+    edit_gesture: u64,
+    edit_pass: u64,
     pub shift: bool,
     pub alt: bool,
     hardware_modifiers: egui::Modifiers,
@@ -53,6 +63,12 @@ impl Default for TabletUi {
             color_hex: String::new(),
             color_hue: 0.0,
             color_source: None,
+            brush_name: String::from("My brush"),
+            path_name: String::from("Path 1"),
+            rename_layer: None,
+            layer_name: String::new(),
+            edit_gesture: 0,
+            edit_pass: 0,
             shift: false,
             alt: false,
             hardware_modifiers: egui::Modifiers::NONE,
@@ -102,6 +118,11 @@ impl TabletUi {
     }
     pub fn show(&mut self, app: &mut PhotocraftApp, ui: &mut Ui) {
         let ctx = ui.ctx().clone();
+        let pass = ctx.cumulative_pass_nr();
+        if ctx.input(|input| input.pointer.any_pressed()) && self.edit_pass != pass {
+            self.edit_gesture = self.edit_gesture.wrapping_add(1);
+            self.edit_pass = pass;
+        }
         let size = ctx.content_rect().size();
         let t = Tokens::get(&ctx);
         ui.spacing_mut().interact_size = vec2(44., 44.);
