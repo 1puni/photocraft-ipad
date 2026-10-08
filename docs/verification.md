@@ -1,6 +1,57 @@
 # Local verification — 2026-10-08
 
-This is an in-progress port. Passing these checks does not establish complete iPad or Adobe Photoshop parity.
+## Public readiness checks
+
+Fresh GitHub clone of `82be479`, including the Layers stack and navigation work
+from `5eae0db`, with a new, isolated Cargo target directory:
+
+- `setup.sh` fetched public upstream and applied all five patches. The resulting
+  tree matched `7545cfe69924ec4f48fee63aa61ebf3ff82c48ac`.
+- `cargo fmt --check`, `cargo test --locked` (19 passed), and
+  `cargo clippy --locked --all-targets --no-deps -- -D warnings` passed.
+- `build.sh` produced the optimized WebAssembly distribution at 14:46 UTC,
+  with three existing upstream dead-code warnings. Shell syntax checks passed.
+- `cargo-about 0.9.2 --locked --fail` resolved all 240 runtime/build packages.
+  Every package is represented in the generated license page. Required upstream,
+  asset and translation notices are present and served over HTTP; embedded font
+  terms and the IJG acknowledgement are included. No local manifest paths or
+  restricted ArtCraft logo SVGs appear in the distribution.
+- A deliberately missing license tool caused the build to fail while preserving
+  all 16 previously served files byte-for-byte.
+- `uv run --no-project --python 3.12 python -m unittest test_server` passed.
+- Chrome imported the public-domain Great Wave, displayed the new Layers stack
+  and grouped tool rail, and opened Brush studio. README screenshots were
+  refreshed from this build; provenance is in [visuals](visuals.md).
+- Gitleaks 8.30.1 scanned all refs and full reachable history with zero findings.
+  File inventory and screenshot metadata were also reviewed for private content.
+- Focused review of setup, engine pinning, notice generation and build publication
+  found no unresolved release-preparation defects.
+
+## Initial repository preparation checks
+
+Fresh checks on the `06495ac` extension snapshot plus repository preparation:
+
+- `setup.sh` cloned public upstream at the pinned revision and applied all four
+  patches. The resulting Git tree matched `9905aaa3fcc69c678788d24132010d2f1c08037e`.
+  A changed sibling checkout was refused without modifying its work.
+- `cargo test --locked`: 14 passed. `cargo clippy --locked --all-targets --no-deps
+  -- -D warnings` and `cargo fmt --check` passed.
+- `build.sh`: optimized WebAssembly build passed (Rust 1.96.0, Trunk 0.21.14),
+  with three existing upstream dead-code warnings. Output includes licenses,
+  NOTICE, upstream attribution and referenced asset license texts.
+- `uv run --no-project --python 3.12 python -m unittest test_server`: passed.
+- Fresh Chrome launch imported the public-domain Great Wave, displayed the layer
+  inspector, and opened the brush studio. The initial README captures came from this run.
+  The launch page and SVG cover were inspected. A browser viewport override did
+  not take effect, so this run adds no portrait-device claim; existing Rust layout
+  tests cover portrait and Split View dimensions.
+- Local Markdown/HTML links resolved. Existing history: 48 blobs scanned for
+  high-confidence credential patterns, no matches. Source and patch review found
+  no credentials or private logs to publish; ordinary commit authorship remains.
+
+## Earlier engineering checks
+
+Tests exercise the Rust workspace, shared touch controls, input policies and browser workflows. Physical Pencil measurements are the next test pass.
 
 - Base fork: upstream v0.3.0 / `5896f0b`, local host, input and touch-dialog changes through `af949b1`.
 - Base UI/browser test run: 834 UI unit tests passed, 3 upstream tests ignored; integration tests and doc tests also passed. A GPU render test required running outside the filesystem sandbox. Batched strokes preserve individual pressure/tilt samples, including pen taps.
@@ -17,7 +68,7 @@ This is an in-progress port. Passing these checks does not establish complete iP
 
 A shared Cargo target collision with the OSS review copy initially linked stale UI despite a new output hash. Build output is now isolated under this checkout’s target directory; the browser visibly shows the new rail and Layers stack. The existing layer-reveal helper is exposed by the base fork; its two tests and base lint/layer checks pass.
 
-V has assigned initial open-source publication to the separate publishing session and requested recurring coordination, then continued development in the open. Publication is not yet confirmed by this implementation session. Implementation/validation logs are local temporary operational evidence, not publication artifacts.
+Release preparation and source may be pushed privately; public visibility awaits V’s go-ahead. No upstream PR has been submitted. Initial visibility remains with the publishing session; implementation sends recurring verified handoffs. Implementation/validation logs are local temporary operational evidence, not publication artifacts.
 
 ## Command shelf and browser speech adapter
 
