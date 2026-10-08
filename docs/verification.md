@@ -87,7 +87,7 @@ A shared Cargo target collision with the OSS review copy initially linked stale 
 
 No upstream PR was submitted as part of these checks.
 
-## Command shelf and browser speech adapter (replacement planned)
+## Historical command shelf and browser speech adapter (superseded)
 
 The historical `2ba5edf` implementation added a bottom command shelf and browser speech adapter, since replaced by on-demand search and native keyboard transcription. That revision passed 26 tests and native/Wasm Clippy; it never established physical iPad microphone acceptance. Current behavior is described below.
 
@@ -100,6 +100,12 @@ Merge `5afa515` retains the release preparation through `29bd591` and command im
 Fresh checks in the implementation checkout's isolated target passed: formatting, all 26 tests plus binary/doc-test targets, native Clippy with warnings denied, Wasm check, server boundary test, and the canonical optimized build. Dependency notice generation passed with `cargo-about 0.9.2 --locked --fail`; all 240 runtime/build packages remain represented. The combined distribution was staged at 15:20 UTC. The running port 4876 served its editor and dependency license page; the served license page matched the generated file byte-for-byte. Repository visibility remained private. Device speech and measured Pencil acceptance remain open.
 
 ## Native command entry, source picking and Pencil scrolling correction
+
+Delivered on public `main` at `66c5572`, including implementation `cc83215` and
+browser evidence `15baa97`. The publication checkout independently reran
+`cargo test --locked`: all 32 tests and binary/doc-test targets passed. Its
+source comparison confirmed the integrated Rust source matches `cc83215`, with
+the engine pin, five patches and lockfile unchanged from `1083549`.
 
 Search now opens from the top magnifier in a modal without changing the canvas or inspector geometry. Text comes from a normal input and the native keyboard; there is no application microphone or recognizer. Results separate names from menu paths and offer category filters. Bare “blur” remains ambiguous; “blur tool” selects the tool, while Box, Gaussian, Motion and Lens Blur dispatch their distinct shared dialogs. The foreground/background colours remain visible in the pinned rail, with separate editing targets.
 

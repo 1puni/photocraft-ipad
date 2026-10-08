@@ -17,12 +17,23 @@ and a standalone segmentation evaluation. Hosted demos remain a separate project
 - [x] **Publication:** opened on 8 October 2026 at revision `f08c26a`. Anonymous
   GitHub API and README access verified; private vulnerability reporting enabled.
 
-## Next public development batch
+## Delivered: native command entry and editing controls
 
-The native-keyboard command-search correction is in progress on a topic branch:
-on-demand top-bar search will replace the permanent shelf and custom recognizer.
-The audited source snapshot was opened first so subsequent development can
-happen in public. Uncommitted implementation work was excluded from this release.
+The first public development batch landed on 8 October 2026 in
+[`66c5572`](https://github.com/1puni/photocraft-ipad/commit/66c5572b733c9a01d14684c249ecc2789522c3cd),
+preserving the release and research history. On-demand top-bar search replaces
+the permanent shelf and custom speech recognizer; text entry uses the native
+keyboard. The batch also adds pinned foreground/background colour chips,
+distinct blur choices, one-shot Stamp/Healing source selection, Layer via Copy/Cut
+and explicit panel drag scrolling.
+
+The implementation passed 32 tests, formatting, native Clippy, Wasm checks,
+the optimized build and locked dependency notice generation. Chrome acceptance
+covered stable search, cloned pixels and undo, selection copying, and a saved
+three-layer PSD reopened with its contents intact. The engine pin, five patches
+and dependency lockfile are unchanged. The [test record](verification.md#native-command-entry-source-picking-and-pencil-scrolling-correction)
+contains the evidence; physical Pencil and native keyboard dictation acceptance
+remain on the roadmap.
 
 ## Development in the open
 
