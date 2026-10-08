@@ -15,13 +15,16 @@ impl TabletUi {
         let modal = egui::Modal::new(egui::Id::new(("ipad-sheet", title))).show(ctx, |ui| {
             ui.set_width(width);
             ui.spacing_mut().interact_size = vec2(44., 44.);
+            ui.spacing_mut().scroll.floating = false;
+            ui.spacing_mut().scroll.bar_width = 14.;
+            ui.spacing_mut().scroll.bar_inner_margin = 6.;
             ui.horizontal(|ui| {
                 ui.heading(title);
                 if button(ui, "Close", false).clicked() { close = true; }
             });
             if sheet == Sheet::Commands { self.command_navigation(ui); }
             let body_height = (ctx.content_rect().height() - if sheet == Sheet::Commands { 280. } else { 180. }).max(120.);
-            egui::ScrollArea::vertical().max_height(body_height).min_scrolled_height(body_height).show(ui, |ui| {
+            egui::ScrollArea::vertical().scroll_source(egui::scroll_area::ScrollSource::ALL).max_height(body_height).min_scrolled_height(body_height).show(ui, |ui| {
                 match sheet {
                     Sheet::Brush => self.brush_studio(app, ui),
                     Sheet::Channels => self.channels(app, ui),

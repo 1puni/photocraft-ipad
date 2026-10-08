@@ -7,6 +7,185 @@ fn app() -> PhotocraftApp {
 }
 
 #[test]
+fn fresh_pointer_drag_scrolls_layers_without_selecting_or_editing() {
+    use egui_kittest::{Harness, kittest::Queryable};
+    let mut app = app();
+    app.run("file.new", json!({"width":32,"height":32}))
+        .unwrap();
+    for i in 0..20 {
+        app.run(
+            "layer.new.layer",
+            json!({"name":format!("Scroll layer {i}")}),
+        )
+        .unwrap();
+    }
+    let before = app.session.active().unwrap().doc.clone();
+    let active = app.session.active().unwrap().active_layer;
+    let mut h = Harness::builder()
+        .with_size(vec2(1194., 834.))
+        .build_ui_state(
+            |ui, (app, w): &mut (PhotocraftApp, TabletUi)| w.show(app, ui),
+            (app, TabletUi::default()),
+        );
+    h.run_steps(3);
+    assert!(!h.ctx.input(|i| i.has_touch_screen()));
+    let pos = h.get_by_label("Image: Scroll layer 19").rect().center();
+    h.hover_at(pos);
+    h.drag_at(pos);
+    h.run_steps(1);
+    h.hover_at(pos - vec2(0., 80.));
+    h.run_steps(1);
+    h.hover_at(pos - vec2(0., 160.));
+    h.run_steps(1);
+    h.drop_at(pos - vec2(0., 160.));
+    h.run_steps(3);
+    assert_eq!(h.state().0.session.active().unwrap().doc, before);
+    assert_eq!(h.state().0.session.active().unwrap().active_layer, active);
+    assert!(h.get_by_label("Image: Scroll layer 19").rect().center().y < pos.y - 50.);
+}
+
+#[test]
+fn selection_menu_copies_or_cuts_selected_pixels_and_undo_restores_them() {
+    use egui_kittest::{Harness, kittest::Queryable};
+    for (label, cut) in [("Layer via Copy", false), ("Layer via Cut", true)] {
+        let mut app = app();
+        app.run(
+            "file.new",
+            json!({"width":32,"height":32,"background":"transparent"}),
+        )
+        .unwrap();
+        app.run("select.rect", json!({"x":0,"y":0,"width":16,"height":32}))
+            .unwrap();
+        app.run("edit.fill", json!({"color":"#ff0000"})).unwrap();
+        app.run("select.rect", json!({"x":0,"y":0,"width":8,"height":32}))
+            .unwrap();
+        app.ui.tool = Tool::RectMarquee;
+        let before = app.session.active().unwrap().doc.clone();
+        let source = app.session.active().unwrap().active_layer.unwrap();
+        let mut h = Harness::builder()
+            .with_size(vec2(1194., 834.))
+            .build_ui_state(
+                |ui, (app, w): &mut (PhotocraftApp, TabletUi)| w.show(app, ui),
+                (app, TabletUi::default()),
+            );
+        h.run_steps(3);
+        h.get_by_label("Selection").click();
+        h.run_steps(3);
+        h.get_by_label(label).click();
+        h.run_steps(3);
+        assert!(h.state().1.message.is_empty(), "{}", h.state().1.message);
+        let doc = &h.state().0.session.active().unwrap().doc;
+        let active = h.state().0.session.active().unwrap().active_layer.unwrap();
+        assert_ne!(source, active);
+        let pixels = doc.layer(active).unwrap().surface().unwrap();
+        assert!(pixels.sample_channel(4, 16, 3) > 0.99);
+        assert!(pixels.sample_channel(12, 16, 3) < 0.01);
+        let original = doc.layer(source).unwrap().surface().unwrap();
+        assert_eq!(original.sample_channel(4, 16, 3) > 0.99, !cut);
+        assert!(original.sample_channel(12, 16, 3) > 0.99);
+        h.get_by_label("Undo").click();
+        h.run_steps(3);
+        assert_eq!(h.state().0.session.active().unwrap().doc, before);
+    }
+}
+
+#[test]
+fn stamp_source_pick_is_one_shot_then_the_next_stroke_clones_and_undoes() {
+    use egui_kittest::{Harness, kittest::Queryable};
+    use photocraft_ui_egui::canvas::{ToolEvent, tool_event};
+    let mut app = app();
+    app.run(
+        "file.new",
+        json!({"width":32,"height":32,"background":"transparent"}),
+    )
+    .unwrap();
+    app.run("select.rect", json!({"x":0,"y":0,"width":16,"height":32}))
+        .unwrap();
+    app.run("edit.fill", json!({"color":"#ff0000"})).unwrap();
+    app.run("select.deselect", json!({})).unwrap();
+    app.session.tools.brush.size = 6.;
+    app.ui.tool = Tool::CloneStamp;
+    app.ui.views.push(Default::default());
+    let before = app.session.active().unwrap().doc.clone();
+    let mut h = Harness::builder()
+        .with_size(vec2(1194., 834.))
+        .build_ui_state(
+            |ui, (app, w): &mut (PhotocraftApp, TabletUi)| w.show(app, ui),
+            (app, TabletUi::default()),
+        );
+    h.run_steps(3);
+    h.get_by_label("Set source").click();
+    h.run_steps(3);
+    assert!(h.state().1.clone_source_pick);
+    let ctx = egui::Context::default();
+    for pressed in [true, false] {
+        let (app, w) = h.state_mut();
+        let mut raw = egui::RawInput::default();
+        raw.events.push(egui::Event::PointerButton {
+            pos: egui::pos2(300., 300.),
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        });
+        w.raw_input(&mut raw);
+        ctx.run_ui(raw, |ui| {
+            w.update_source_pick(app, ui.ctx());
+            let mods = ui.input(|i| i.modifiers);
+            assert!(mods.alt);
+            tool_event(
+                app,
+                if pressed {
+                    ToolEvent::Down {
+                        x: 8.,
+                        y: 16.,
+                        pressure: 0.5,
+                    }
+                } else {
+                    ToolEvent::Up { x: 8., y: 16. }
+                },
+                mods,
+            );
+        })
+        .textures_delta
+        .clear();
+    }
+    assert!(!h.state().1.clone_source_pick);
+    assert_eq!(h.state().0.session.active().unwrap().doc, before);
+    let (app, w) = h.state_mut();
+    let mut raw = egui::RawInput::default();
+    w.raw_input(&mut raw);
+    ctx.run_ui(raw, |ui| {
+        let mods = ui.input(|i| i.modifiers);
+        assert!(!mods.alt);
+        tool_event(
+            app,
+            ToolEvent::Down {
+                x: 24.,
+                y: 16.,
+                pressure: 1.,
+            },
+            mods,
+        );
+        tool_event(app, ToolEvent::Up { x: 24., y: 16. }, mods);
+    })
+    .textures_delta
+    .clear();
+    assert!(!app.ui.status_error, "{}", app.ui.status);
+    let st = app.session.active().unwrap();
+    assert!(
+        st.doc
+            .layer(st.active_layer.unwrap())
+            .unwrap()
+            .surface()
+            .unwrap()
+            .sample_channel(24, 16, 3)
+            > 0.5
+    );
+    w.invoke(app, &ctx, "edit.undo", json!({}));
+    assert_eq!(app.session.active().unwrap().doc, before);
+}
+
+#[test]
 fn touch_modifiers_preserve_hardware_and_release_latches() {
     let mut workspace = TabletUi {
         shift: true,
@@ -520,7 +699,9 @@ fn command_tray_switches_tools_and_dispatches_dialogs_without_mutating_on_search
     h.run_steps(3);
     assert_eq!(h.state().0.ui.tool, Tool::Eraser);
     assert!(!h.state().1.command_tray_open);
-    h.get_by_label("Revert tool switch").click();
+    h.get_by_label("Find command").click();
+    h.run_steps(3);
+    h.get_by_label("Restore Brush Tool").click();
     h.run_steps(3);
     assert_eq!(h.state().0.ui.tool, Tool::Brush);
     h.state_mut().1.command_text = "levels".into();
@@ -536,7 +717,7 @@ fn command_tray_switches_tools_and_dispatches_dialogs_without_mutating_on_search
 }
 
 #[test]
-fn portrait_commands_replace_inspector_and_leave_canvas_space() {
+fn command_search_is_on_demand_and_does_not_resize_the_canvas() {
     use egui_kittest::{Harness, kittest::Queryable};
     for size in [vec2(834., 1194.), vec2(507., 768.), vec2(507., 450.)] {
         let mut h = Harness::builder().with_size(size).build_ui_state(
@@ -546,17 +727,38 @@ fn portrait_commands_replace_inspector_and_leave_canvas_space() {
             },
             (app(), TabletUi::default(), egui::Rect::NOTHING),
         );
-        h.state_mut().1.command_tray_open = true;
         h.run_steps(3);
+        let canvas_before = h.state().2;
+        assert!(h.query_by_label("Close commands").is_none());
+        let search = h.get_by_label("Find command").rect();
         assert!(
-            h.state().2.height() >= 160.,
-            "canvas collapsed at {size:?}: {:?}",
-            h.state().2
+            search.bottom() < 60. && search.right() <= size.x,
+            "search belongs in the top bar: {search:?}"
+        );
+        h.get_by_label("Find command").click();
+        h.run_steps(3);
+        assert_eq!(
+            h.state().2,
+            canvas_before,
+            "opening commands resized the canvas at {size:?}"
         );
         assert!(h.state().1.inspector_open, "preserve inspector state");
-        assert!(h.query_by_label("Layers").is_none());
+        let close = h.get_by_label("Close commands").rect();
+        assert!(
+            close.top() >= 0. && close.right() <= size.x && close.bottom() <= size.y,
+            "{size:?}: {close:?}"
+        );
+        h.state_mut().1.command_text = "blur".into();
+        h.run_steps(3);
+        assert_eq!(
+            h.get_by_label("Close commands").rect(),
+            close,
+            "typing must not move the search sheet"
+        );
         h.get_by_label("Close commands").click();
         h.run_steps(3);
+        assert!(!h.state().1.command_tray_open);
+        assert_eq!(h.state().2, canvas_before);
         assert!(h.query_all_by_label("Layers").next().is_some());
     }
 }
@@ -579,4 +781,74 @@ fn window_commands_show_tablet_panels_instead_of_hidden_desktop_docks() {
     }
     w.invoke(&mut app, &ctx, "window.properties", json!({}));
     assert_eq!(w.sheet, Some(Sheet::LayerProperties));
+}
+
+#[test]
+fn blur_search_opens_each_named_filter_instead_of_reusing_box_blur() {
+    use egui_kittest::{Harness, kittest::Queryable};
+    for (label, id) in [
+        ("Gaussian Blur…", "filter.blur.gaussianBlur"),
+        ("Box Blur…", "filter.blur.boxBlur"),
+        ("Motion Blur…", "filter.blur.motionBlur"),
+        ("Lens Blur…", "filter.blur.lensBlur"),
+    ] {
+        let mut app = app();
+        app.run("file.new", json!({"width":32,"height":32}))
+            .unwrap();
+        let before = app.session.active().unwrap().doc.clone();
+        let mut h = Harness::builder()
+            .with_size(vec2(834., 1194.))
+            .build_ui_state(
+                |ui, (app, w): &mut (PhotocraftApp, TabletUi)| w.show(app, ui),
+                (app, TabletUi::default()),
+            );
+        h.state_mut().1.command_text = "blur".into();
+        h.get_by_label("Find command").click();
+        h.run_steps(3);
+        let result = format!("{label}   ·   Filter / Blur");
+        h.get_by_label(&result).scroll_to_me();
+        h.run_steps(3);
+        h.get_by_label(&result).click();
+        h.run_steps(3);
+        assert_eq!(
+            h.state().0.ui.dialogs.last().unwrap().fields["__command"],
+            json!(id)
+        );
+        assert_eq!(h.state().0.session.active().unwrap().doc, before);
+    }
+}
+
+#[test]
+fn rail_colour_chips_open_the_correct_target_without_changing_colours() {
+    use egui_kittest::{Harness, kittest::Queryable};
+    let mut app = app();
+    app.run(
+        "tools.setColors",
+        json!({"foreground":"#245d85","background":"#e6b97a"}),
+    )
+    .unwrap();
+    let colours = (app.session.tools.foreground, app.session.tools.background);
+    let mut h = Harness::builder()
+        .with_size(vec2(1194., 834.))
+        .build_ui_state(
+            |ui, (app, w): &mut (PhotocraftApp, TabletUi)| w.show(app, ui),
+            (app, TabletUi::default()),
+        );
+    for (label, background, hex) in [
+        ("Background colour", true, "#e6b97a"),
+        ("Foreground colour", false, "#245d85"),
+    ] {
+        h.get_by_label(label).click();
+        h.run_steps(3);
+        assert_eq!(h.state().1.inspector, Inspector::Color);
+        assert_eq!(h.state().1.color_background, background);
+        assert_eq!(h.state().1.color_hex, hex);
+        assert_eq!(
+            (
+                h.state().0.session.tools.foreground,
+                h.state().0.session.tools.background
+            ),
+            colours
+        );
+    }
 }

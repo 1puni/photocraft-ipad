@@ -96,6 +96,7 @@ impl TabletUi {
         // Reserve footer space before sizing the scroll area. The stack owns its scroll.
         let stack_height = (ui.available_height() - 50.).max(50.);
         egui::ScrollArea::vertical()
+            .scroll_source(egui::scroll_area::ScrollSource::ALL)
             .id_salt("ipad-layer-stack")
             .auto_shrink([false, false])
             .max_height(stack_height)
@@ -353,6 +354,7 @@ impl TabletUi {
             });
         });
         self.layer_blending(app, ui, &doc, layer);
+        self.selection_actions(app, ui);
         ui.horizontal_wrapped(|ui| {
             for (label, key, value) in [
                 ("Lock layer", "all", layer.locks.all),

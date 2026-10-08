@@ -34,6 +34,18 @@ pub fn install(
                 let kind = e.type_();
                 let mut c = contacts.borrow_mut();
                 if e.pointer_type() == "pen" {
+                    let phase = match kind.as_str() {
+                        "pointerdown" => egui::TouchPhase::Start,
+                        "pointerup" => egui::TouchPhase::End,
+                        "pointercancel" | "lostpointercapture" => egui::TouchPhase::Cancel,
+                        _ => egui::TouchPhase::Move,
+                    };
+                    let over_ui = !c.area.is_some_and(|area| area.contains(p))
+                        || egui::Popup::is_any_open(&ctx)
+                        || ctx
+                            .layer_id_at(p)
+                            .is_some_and(|layer| layer.order != egui::Order::Background);
+                    let ui_pen = c.pen_ui_event(id, phase, p, over_ui);
                     if kind == "pointerdown" {
                         feed.clear_points();
                     }
@@ -42,7 +54,7 @@ pub fn install(
                     if kind == "pointerdown" || kind == "pointermove" || kind == "pointerup" {
                         let samples = coalesced(&e);
                         if samples.is_empty() {
-                            if kind != "pointerup" && e.buttons() != 0 {
+                            if !ui_pen && kind != "pointerup" && e.buttons() != 0 {
                                 feed.push(p, pen_sample(&e));
                             }
                             c.pen_moves.push(p);
@@ -54,7 +66,9 @@ pub fn install(
                                     (sample.client_y() as f32 - rect.top() as f32)
                                         / ctx.zoom_factor(),
                                 );
-                                feed.push(point, pen_sample(&sample));
+                                if !ui_pen {
+                                    feed.push(point, pen_sample(&sample));
+                                }
                                 c.pen_moves.push(point);
                             }
                         }

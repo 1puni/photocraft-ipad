@@ -12,13 +12,13 @@ V prefers the familiar editor and precise Pencil targets. Replace the catalogue-
 
 Review each surface as an editing workflow, not as proof that a command can be found in a list. The hierarchy and rail are the first design pass; effects, selections, colours, presets and file workflows still require individual refinement.
 
-Keep command search prominent as a useful power tool. V also requested a bottom dictation control: a short spoken command should select a tool or reach the full command system. Speech and typing share resolution and action handling; ambiguous targets and missing parameters need explicit choices. The browser recognition adapter is implemented; real iPad recognition and permissions still need device acceptance. Do not claim fully on-device processing.
+Keep command search available from a top-bar search button. V rejected the permanent bottom shelf because it consumes canvas space and explicitly chose the native keyboard's transcription. Search opens only when requested; dictated and typed text use the same normal text field. The application must not implement its own speech recognition or microphone capture.
 
 The design agent's proposal is one unrestricted Studio, with Photography and Illustration as optional saved arrangements. They change visible panels, not tools, documents, settings or capability. The distinctive interaction is a single edge dock with collapsed, working and expanded states: layer targets, their properties and deeper brush/colour/adjustment controls remain connected to the canvas. In landscape use a roughly 304-point working dock; in portrait use a bottom dock around 300 points, with explicit expansion and collapse. Keep the context strip to one row of two to four relevant controls.
 
 The Layers stack now scrolls independently with pinned actions, separate image/mask/vector targets, meaningful layer-kind thumbnails and a properties/action sheet. A minimum portrait dock height preserves two usable layer rows. Remaining refinements include drag reorder, inline properties for wider docks, mask parameters and contextual actions such as Set source or Constrain instead of bare Alt/Shift latches. Typography, presets, masks and adjustments should expand the same dock instead of requiring unrelated modal lists. The reference workflows are photograph → crop → adjustment → mask → retouch → PSD/export, and canvas → brush → colour → clipped layer → brush dynamics → type/vector → save.
 
-Voice is a small bottom-edge microphone beside command search, opening a transcript/action tray. Final unambiguous reversible tool switches can execute immediately with a visible result and Revert. Ambiguity shows choices; required parameters open the same controls as menu/typed commands. Consequential actions show their target and proposed operation first. No always-listening mode, audio retention or document upload is needed. A custom web button cannot be assumed to invoke the native keyboard's dictation; test browser speech recognition and retain normal text/keyboard input as fallback. [WebKit documents Safari's Siri-backed speech recognition](https://webkit.org/blog/11648/new-webkit-features-in-safari-14-1/).
+Native keyboard dictation supplies text only. Exact tool names can execute on Enter; search results support a deliberate tap for any command. Ambiguous targets show choices, and parameterized actions open their existing controls. Merely transcribing text does not execute it. Validate native keyboard entry and dictation on the iPad; do not add a custom microphone button or recognition service.
 
 ## Acceptance matrix
 
@@ -27,14 +27,15 @@ Voice is a small bottom-edge microphone beside command search, opening a transcr
 | Hosting | Mac serves only public files on LAN, original and preview separated | Re-run scoped-server tests after changes |
 | Workspace | Touch rail, adaptive bottom/right inspector, contextual strip | Portrait, landscape, Split View, safe areas, keyboard checks |
 | Tools | All 49 tools in a grouped, scrollable icon rail | Per-tool options, actual gestures, apply/cancel controls |
-| Commands | Menu hierarchy, bottom typed search and browser speech adapter, shared tool/menu resolution; portrait command tray temporarily replaces inspector | Real iPad dictation and permissions; responsive dialogs for every family; catalogue access alone is not completion |
+| Commands | Menu hierarchy, on-demand top-bar search, shared tool/menu resolution; normal text entry supports native keyboard dictation | Real iPad keyboard/dictation acceptance; responsive dialogs for every family; catalogue access alone is not completion |
 | Layers | Independent stack, pinned actions, image/mask targeting, properties sheet, multiselect, visibility, opacity, blend, locks, order, groups, masks, rename, thumbnails; channel/path sheets; adaptive Layer Style dialog | Physical channel/path/effects workflows; adjustment surfaces |
 | Brush | Tip basics, pressure, tilt influence, smoothing, presets; all 13 shared dynamics sections and live stroke preview | Physical dynamics/texture/mixer workflows and complete preset management |
-| Colour | Saturation/value pad, hue, hex, foreground/background, eyedropper | Swatches, precise multi-model values, profile proofing |
+| Colour | Visible foreground/background chips pinned to the rail; saturation/value pad, hue, hex, eyedropper | Swatches, precise multi-model values, profile proofing |
+| Selection / retouch | Selection menu with Layer via Copy/Cut, inverse and deselect; one-shot Set source for Clone Stamp/Healing | Physical Pencil source-pick acceptance; complete selection/refine/mask workflows |
 | History | Large history rows, undo/redo and state traversal | Integration test with active transforms and grouped settings |
 | Documents | Open/new/save/export access, touch new-document and Export As dialogs, document switcher | Close/recovery workflow, remaining file dialog families, repeated PSD roundtrips |
 | Pencil | Per-point pressure/tilt feed, optional coalesced samples with fallback, palm suppression, cancellation release | Physical device evidence; browser sample fidelity, source/constraint gestures |
-| Navigation | Two-finger pan/pinch; finger canvas does not paint | Real-device stress, orientation changes, accidental touch cases |
+| Navigation | Two-finger pan/pinch; finger canvas does not paint; direct panel drag scrolling, UI-only Pencil touch lifetimes for shared controls, wider inspector/sheet scrollbars | Physical Pencil scrolling, cross-boundary/cancel stress, orientation changes |
 | Reliability | Preserve last served preview when build fails | Browser memory loss/context recovery, large PSD performance |
 
 ## Preview evidence before workspace replacement

@@ -97,20 +97,69 @@ impl TabletUi {
                 egui::Panel::bottom("ipad-rail-colour")
                     .frame(Frame::NONE)
                     .show(ui, |ui| {
-                        if icon_button(
-                            ui,
-                            "palette",
-                            "Colour",
-                            self.inspector_open && self.inspector == Inspector::Color,
-                            40.,
-                        )
-                        .clicked()
-                        {
-                            self.inspector = Inspector::Color;
-                            self.inspector_open = true;
-                        }
+                        ui.horizontal(|ui| {
+                            for (background, short, label, color) in [
+                                (
+                                    false,
+                                    "FG",
+                                    "Foreground colour",
+                                    app.session.tools.foreground,
+                                ),
+                                (
+                                    true,
+                                    "BG",
+                                    "Background colour",
+                                    app.session.tools.background,
+                                ),
+                            ] {
+                                let (rect, response) =
+                                    ui.allocate_exact_size(vec2(42., 48.), egui::Sense::click());
+                                let swatch = egui::Rect::from_min_size(
+                                    rect.min + vec2(3., 2.),
+                                    vec2(36., 30.),
+                                );
+                                photocraft_ui_egui::widgets::checker(ui.painter(), swatch, 6.);
+                                let [r, g, b, a] =
+                                    color.map(|v| (v.clamp(0., 1.) * 255.).round() as u8);
+                                ui.painter().rect_filled(
+                                    swatch,
+                                    2.,
+                                    egui::Color32::from_rgba_unmultiplied(r, g, b, a),
+                                );
+                                ui.painter().rect_stroke(
+                                    swatch,
+                                    2.,
+                                    egui::Stroke::new(1., tokens.text_dim),
+                                    egui::StrokeKind::Inside,
+                                );
+                                ui.painter().text(
+                                    rect.center_bottom() - vec2(0., 2.),
+                                    egui::Align2::CENTER_BOTTOM,
+                                    short,
+                                    egui::FontId::proportional(10.),
+                                    tokens.text,
+                                );
+                                response.widget_info(|| {
+                                    egui::WidgetInfo::labeled(
+                                        egui::WidgetType::Button,
+                                        ui.is_enabled(),
+                                        label,
+                                    )
+                                });
+                                if response
+                                    .on_hover_text(format!("{label} · #{r:02X}{g:02X}{b:02X}"))
+                                    .clicked()
+                                {
+                                    self.color_background = background;
+                                    self.color_hex.clear();
+                                    self.inspector = Inspector::Color;
+                                    self.inspector_open = true;
+                                }
+                            }
+                        });
                     });
                 egui::ScrollArea::vertical()
+                    .scroll_source(egui::scroll_area::ScrollSource::ALL)
                     .id_salt("ipad-all-tools")
                     .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)
                     .show(ui, |ui| {
@@ -153,37 +202,23 @@ impl TabletUi {
             } else {
                 self.command_path.join(" / ")
             });
-            if icon_button(ui, "search", "Find command", self.search_open, 44.).clicked() {
-                self.search_open = !self.search_open;
-                self.search.clear();
+            if icon_button(ui, "search", "Search Studio commands", false, 44.).clicked() {
+                self.sheet = None;
+                self.command_tray_open = true;
+                self.command_focus_requested = true;
             }
         });
-        if self.search_open {
-            ui.add_sized(
-                [ui.available_width(), 44.],
-                egui::TextEdit::singleline(&mut self.search).hint_text("Find a command…"),
-            );
-        }
     }
 
     pub(super) fn command_browser(&mut self, app: &mut PhotocraftApp, ui: &mut Ui) -> bool {
         let items = menus::menu_items(app);
-        let query = self.search.trim().to_lowercase();
-        let searching = !query.is_empty();
         let mut groups = Vec::<String>::new();
         let mut matches = Vec::new();
         for item in &items {
             if item.id.is_empty() || item.label == "---" || !menus::is_live(&item.id) {
                 continue;
             }
-            if searching {
-                if format!("{} {}", item.label, item.path.join(" "))
-                    .to_lowercase()
-                    .contains(&query)
-                {
-                    matches.push(item);
-                }
-            } else if item.path.starts_with(&self.command_path) {
+            if item.path.starts_with(&self.command_path) {
                 if let Some(group) = item.path.get(self.command_path.len()) {
                     if !groups.contains(group) {
                         groups.push(group.clone());
@@ -210,32 +245,17 @@ impl TabletUi {
                 });
             ui.separator();
         }
-        let total = matches.len();
-        for item in matches
-            .into_iter()
-            .take(if searching { 40 } else { usize::MAX })
-        {
-            let label = if searching {
-                format!("{}\n{}", item.label, item.path.join(" / "))
-            } else {
-                item.label.clone()
-            };
+        for item in matches {
             if ui
                 .add_enabled(
                     item.enabled,
-                    Button::new(label).min_size(vec2(ui.available_width(), 44.)),
+                    Button::new(&item.label).min_size(vec2(ui.available_width(), 44.)),
                 )
                 .clicked()
             {
                 self.invoke(app, ui.ctx(), &item.id, json!({}));
                 return true;
             }
-        }
-        if searching && total == 0 {
-            ui.label("No matching commands.");
-        }
-        if searching && total > 40 {
-            ui.label("Keep typing to narrow the results.");
         }
         false
     }

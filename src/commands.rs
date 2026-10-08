@@ -68,8 +68,10 @@ pub fn find(app: &PhotocraftApp, text: &str, last_selection: Tool) -> Vec<Choice
     for tool in Tool::ALL {
         let name = normalized(tool.label());
         let short = name.strip_suffix(" tool").unwrap_or(&name);
-        let rank = if q == name || q == short {
+        let rank = if q == name {
             400
+        } else if q == short {
+            300
         } else {
             score(&q, tool.label(), "Tools", "")
         };
@@ -189,5 +191,35 @@ mod tests {
         }
         assert!(find(&app, "nothing with this improbable name", Tool::RectMarquee).is_empty());
         assert!(find(&app, "delete", Tool::RectMarquee).len() > 1);
+    }
+
+    #[test]
+    fn blur_is_ambiguous_and_exposes_distinct_filters() {
+        let mut app = app();
+        app.run("file.new", serde_json::json!({"width":32,"height":32}))
+            .unwrap();
+        let found = find(&app, "blur", Tool::RectMarquee);
+        assert_eq!(
+            immediate_tool(&found),
+            None,
+            "Blur names a tool and a filter"
+        );
+        for id in [
+            "filter.blur.boxBlur",
+            "filter.blur.gaussianBlur",
+            "filter.blur.motionBlur",
+            "filter.blur.lensBlur",
+        ] {
+            assert!(
+                found
+                    .iter()
+                    .any(|c| c.action == Action::Command(id.into()) && c.enabled),
+                "{id}"
+            );
+        }
+        assert_eq!(
+            immediate_tool(&find(&app, "blur tool", Tool::RectMarquee)),
+            Some(Tool::Blur)
+        );
     }
 }

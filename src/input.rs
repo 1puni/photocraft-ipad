@@ -21,10 +21,38 @@ pub struct Contacts {
     pub pen_moves: Vec<Pos2>,
     pub cancelled_pen: Option<Pos2>,
     pub ui_pointer: Option<i32>,
+    ui_pen: Option<i32>,
     pub ui_touches: Vec<egui::Event>,
 }
 
 impl Contacts {
+    /// Pencil is a touch scroll source only in UI. Fix ownership at contact start so
+    /// crossing the canvas edge cannot turn a panel drag into a painting gesture.
+    pub fn pen_ui_event(
+        &mut self,
+        id: i32,
+        phase: egui::TouchPhase,
+        pos: Pos2,
+        over_ui: bool,
+    ) -> bool {
+        if phase == egui::TouchPhase::Start {
+            self.ui_pen = over_ui.then_some(id);
+        }
+        if self.ui_pen != Some(id) {
+            return false;
+        }
+        self.ui_touches.push(egui::Event::Touch {
+            device_id: egui::TouchDeviceId(2),
+            id: egui::TouchId(id as u64),
+            phase,
+            pos,
+            force: None,
+        });
+        if matches!(phase, egui::TouchPhase::End | egui::TouchPhase::Cancel) {
+            self.ui_pen = None;
+        }
+        true
+    }
     /// Insert real Pencil motion before eframe's release; remove duplicate compatibility moves.
     pub fn augment_input(&mut self, raw: &mut egui::RawInput) {
         raw.events.splice(0..0, self.ui_touches.drain(..));
@@ -130,6 +158,87 @@ pub fn navigate(view: &mut photocraft_ui_egui::state::View, rect: Rect, flip: bo
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ui_pen_contact_keeps_ownership_and_never_supplies_pressure() {
+        use egui::TouchPhase::*;
+        let mut c = Contacts::default();
+        let p = egui::pos2(40., 80.);
+        assert!(c.pen_ui_event(7, Start, p, true));
+        assert!(c.pen_ui_event(7, Move, p, false));
+        assert!(c.pen_ui_event(7, Cancel, p, false));
+        assert!(!c.pen_ui_event(7, Move, p, true));
+        assert!(!c.pen_ui_event(8, Start, p, false));
+        assert!(!c.pen_ui_event(8, Move, p, true));
+        assert!(!c.pen_ui_event(8, End, p, true));
+        let mut raw = egui::RawInput::default();
+        c.augment_input(&mut raw);
+        assert_eq!(raw.events.len(), 3);
+        let mut stylus = photocraft_ui_egui::stylus::Stylus::default();
+        stylus.update(&raw.events);
+        assert!(stylus.sample().is_none());
+    }
+
+    #[test]
+    fn pencil_opened_controls_scroll_shared_areas_without_clicking_rows() {
+        use egui::TouchPhase::*;
+        let ctx = egui::Context::default();
+        let mut c = Contacts::default();
+        let mut offset = 0.;
+        let mut clicks = 0;
+        let mut frame = |c: &mut Contacts, phase: Option<egui::TouchPhase>, y: f32| {
+            let p = egui::pos2(80., y);
+            let mut raw = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    Pos2::ZERO,
+                    egui::vec2(240., 300.),
+                )),
+                ..Default::default()
+            };
+            if let Some(phase) = phase {
+                c.pen_ui_event(1, phase, p, true);
+                raw.events.push(egui::Event::PointerMoved(p));
+                if matches!(phase, Start | End) {
+                    raw.events.push(egui::Event::PointerButton {
+                        pos: p,
+                        button: egui::PointerButton::Primary,
+                        pressed: phase == Start,
+                        modifiers: egui::Modifiers::NONE,
+                    });
+                }
+            }
+            c.augment_input(&mut raw);
+            ctx.run_ui(raw, |ui| {
+                let out = egui::ScrollArea::vertical()
+                    .max_height(250.)
+                    .show(ui, |ui| {
+                        for i in 0..30 {
+                            if ui
+                                .add_sized([180., 44.], egui::Button::new(format!("Row {i}")))
+                                .clicked()
+                            {
+                                clicks += 1;
+                            }
+                        }
+                    });
+                offset = out.state.offset.y;
+            })
+            .textures_delta
+            .clear();
+        };
+        frame(&mut c, None, 0.);
+        frame(&mut c, None, 0.);
+        // Opening a shared dialog/dropdown is itself a Pencil UI tap. Extension
+        // areas use explicit ALL so their initial frame never needs this warm-up.
+        frame(&mut c, Some(Start), 280.);
+        frame(&mut c, Some(End), 280.);
+        frame(&mut c, Some(Start), 200.);
+        frame(&mut c, Some(Move), 170.);
+        frame(&mut c, Some(Move), 100.);
+        frame(&mut c, Some(End), 100.);
+        assert!(offset > 50., "Pencil-first drag did not scroll: {offset}");
+        assert_eq!(clicks, 0, "scrolling must not activate a row");
+    }
 
     #[test]
     fn ui_touches_enable_kinetic_scrolling_without_becoming_pen_pressure() {

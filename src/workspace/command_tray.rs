@@ -1,114 +1,8 @@
+//! On-demand command search. Text entry, including dictation, belongs to the native keyboard.
 use super::*;
-use crate::{
-    commands::{self, Action},
-    speech::Phase,
-};
+use crate::commands::{self, Action};
+
 impl TabletUi {
-    pub(super) fn command_bar(&mut self, app: &mut PhotocraftApp, ui: &mut Ui) {
-        let enabled = self.sheet.is_none()
-            && app.ui.dialogs.is_empty()
-            && !egui::Popup::is_any_open(ui.ctx());
-        if !enabled {
-            self.dictation.cancel();
-        }
-        if photocraft_ui_egui::tool_feedback::is_selection_tool(app.ui.tool) {
-            self.last_selection = app.ui.tool;
-        }
-        if self.dictation.take_open() {
-            self.command_tray_open = true;
-        }
-        if let Some(text) = self.dictation.take_final() {
-            self.command_text = text;
-            self.submit_command(app);
-            ui.ctx().request_repaint();
-        }
-        let t = Tokens::get(ui.ctx());
-        let state = self.dictation.snapshot();
-        egui::Panel::bottom("ipad-command-bar")
-            .exact_size(48.)
-            .frame(
-                Frame::NONE
-                    .fill(t.chrome)
-                    .inner_margin(egui::Margin::symmetric(8, 2)),
-            )
-            .show(ui, |ui| {
-                ui.add_enabled_ui(enabled, |ui| {
-                    ui.horizontal(|ui| {
-                        let mic = button(
-                            ui,
-                            if self.dictation.has_button() {
-                                ""
-                            } else if state.phase == Phase::Idle {
-                                "Speak"
-                            } else {
-                                "Cancel"
-                            },
-                            state.phase != Phase::Idle,
-                        );
-                        #[cfg(target_arch = "wasm32")]
-                        self.dictation.place_button(
-                            enabled.then_some(mic.rect),
-                            ui.ctx().zoom_factor(),
-                            t.text,
-                            t.accent_text,
-                        );
-                        if mic.clicked() {
-                            // Native builds/tests have no browser overlay. The wasm button's
-                            // own click listener starts recognition synchronously with the tap.
-                            self.command_tray_open = true;
-                        }
-                        let extra = 100.;
-                        let response = ui.add_sized(
-                            [ui.available_width() - extra, 44.],
-                            egui::TextEdit::singleline(&mut self.command_text)
-                                .hint_text("Find or speak a command…"),
-                        );
-                        if response.changed() || response.gained_focus() {
-                            self.command_tray_open = true;
-                            self.tool_receipt = None;
-                        }
-                        if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                            self.submit_command(app);
-                        }
-                        if navigation::icon_button(
-                            ui,
-                            "search",
-                            "Find command",
-                            self.command_tray_open,
-                            44.,
-                        )
-                        .clicked()
-                        {
-                            self.command_tray_open = true;
-                        }
-                        if let Some((before, after)) = self.tool_receipt {
-                            if app.ui.tool != after {
-                                self.tool_receipt = None;
-                            } else if navigation::icon_button(
-                                ui,
-                                "undo-2",
-                                "Revert tool switch",
-                                false,
-                                44.,
-                            )
-                            .on_hover_text(format!(
-                                "{} selected · Restore {}",
-                                after.label(),
-                                before.label()
-                            ))
-                            .clicked()
-                            {
-                                app.ui.tool = before;
-                                self.tool_receipt = None;
-                                self.command_text.clear();
-                            }
-                        } else {
-                            ui.allocate_space(vec2(44., 44.));
-                        }
-                    });
-                });
-            });
-    }
     fn submit_command(&mut self, app: &mut PhotocraftApp) {
         let choices = commands::find(app, &self.command_text, self.last_selection);
         if let Some(tool) = commands::immediate_tool(&choices) {
@@ -117,49 +11,181 @@ impl TabletUi {
             self.tool_receipt = Some((before, tool));
             self.command_text.clear();
             self.command_tray_open = false;
-        } else {
-            self.command_tray_open = true;
         }
     }
+
     pub(super) fn command_tray(&mut self, app: &mut PhotocraftApp, ui: &mut Ui) {
         if !self.command_tray_open || self.sheet.is_some() || !app.ui.dialogs.is_empty() {
             return;
         }
-        let state = self.dictation.snapshot();
-        let t = Tokens::get(ui.ctx());
-        egui::Panel::bottom("ipad-command-tray").exact_size((ui.ctx().content_rect().height()*0.24).clamp(150.,230.))
-            .frame(Frame::NONE.fill(t.dock).inner_margin(8))
-            .show(ui,|ui| {
-                ui.horizontal(|ui| {
-                    ui.strong(match state.phase {Phase::Idle=>"Commands",Phase::Starting=>"Starting microphone…",Phase::Listening=>"Listening…"});
-                    if button(ui,"Close commands",false).clicked() {self.command_tray_open=false;self.dictation.cancel();}
-
-                });
-                if !state.error.is_empty() {ui.label(&state.error);}
-                else if !state.interim.is_empty() {ui.label(&state.interim);}
-                if state.phase != Phase::Idle {
-                    ui.label("Say one short command. Tap the microphone again to cancel.");
-                    return;
+        let ctx = ui.ctx().clone();
+        let screen = ctx.content_rect();
+        let width = (screen.width() - 40.).clamp(240., 560.);
+        let body_height = (screen.height() - 270.).clamp(60., 360.);
+        let mut close = false;
+        let modal = egui::Modal::new(egui::Id::new("ipad-command-search")).show(&ctx, |ui| {
+            ui.set_width(width);
+            ui.spacing_mut().interact_size = vec2(44., 44.);
+            ui.horizontal(|ui| {
+                ui.heading("Find command");
+                if navigation::icon_button(ui, "x", "Close commands", false, 44.).clicked() {
+                    close = true;
                 }
-                if self.command_text.trim().is_empty() {
-                    ui.label("Try “brush tool”, “selection tool”, “levels” or a menu command.");
-                    ui.label("English browser speech may use its provider’s online service. PhotoCraft does not store audio.");
-                    if !state.supported {ui.label("Browser speech is unavailable here. Type, or use keyboard dictation.");}
-                    return;
+            });
+            let input = ui.add_sized(
+                [width, 44.],
+                egui::TextEdit::singleline(&mut self.command_text).hint_text("Tool or command…"),
+            );
+            if std::mem::take(&mut self.command_focus_requested) {
+                input.request_focus();
+            }
+            if input.changed() {
+                self.command_group.clear();
+            }
+            if input.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                self.submit_command(app);
+            }
+            if let Some((before, after)) = self.tool_receipt {
+                if app.ui.tool != after {
+                    self.tool_receipt = None;
+                } else if button(ui, &format!("Restore {}", before.label()), false).clicked() {
+                    app.ui.tool = before;
+                    self.tool_receipt = None;
+                    close = true;
                 }
-                let choices=commands::find(app,&self.command_text,self.last_selection);
-                if choices.is_empty() {ui.label("No matching command. Try a tool name or menu path.");}
-                egui::ScrollArea::vertical().id_salt("ipad-command-results").auto_shrink([false,false]).show(ui,|ui| {
-                    for choice in choices {
-                        if ui.add_enabled(choice.enabled,Button::new(format!("{}   ·   {}",choice.label,choice.path)).frame(false).min_size(vec2(ui.available_width(),44.))).clicked() {
-                            match choice.action {
-                                Action::Tool(tool)=> {let before=app.ui.tool;app.ui.tool=tool;self.tool_receipt=Some((before,tool));}
-                                Action::Command(id)=> {self.invoke(app,ui.ctx(),&id,json!({}));self.tool_receipt=None;}
+            }
+            let choices = commands::find(app, &self.command_text, self.last_selection);
+            let mut groups = std::collections::BTreeMap::<String, usize>::new();
+            for choice in &choices {
+                *groups
+                    .entry(choice.path.split(" / ").next().unwrap_or("Commands").into())
+                    .or_default() += 1;
+            }
+            egui::ScrollArea::horizontal()
+                .scroll_source(egui::scroll_area::ScrollSource::ALL)
+                .id_salt("ipad-command-groups")
+                .show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.set_min_height(44.);
+                        if choices.is_empty() {
+                            ui.label("Tools and menu commands");
+                            return;
+                        }
+                        if button(
+                            ui,
+                            &format!("All · {}", choices.len()),
+                            self.command_group.is_empty(),
+                        )
+                        .clicked()
+                        {
+                            self.command_group.clear();
+                        }
+                        for (group, count) in &groups {
+                            if button(
+                                ui,
+                                &format!("{group} · {count}"),
+                                self.command_group == *group,
+                            )
+                            .clicked()
+                            {
+                                self.command_group = group.clone();
                             }
-                            self.command_tray_open=false;self.dictation.cancel();self.command_text.clear();
+                        }
+                    });
+                });
+            egui::ScrollArea::vertical()
+                .scroll_source(egui::scroll_area::ScrollSource::ALL)
+                .auto_shrink([false, false])
+                .id_salt(egui::Id::new((
+                    "ipad-command-results",
+                    &self.command_text,
+                    &self.command_group,
+                )))
+                .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)
+                .max_height(body_height)
+                .min_scrolled_height(body_height)
+                .show(ui, |ui| {
+                    if self.command_text.trim().is_empty() {
+                        ui.label("Try “brush tool”, “selection tool” or “levels”.");
+                        ui.label("Use the keyboard’s microphone to dictate.");
+                        return;
+                    }
+                    if choices.is_empty() {
+                        ui.label("No matching command. Try a tool name or menu path.");
+                    }
+                    for choice in choices {
+                        if !self.command_group.is_empty()
+                            && choice.path.split(" / ").next() != Some(self.command_group.as_str())
+                        {
+                            continue;
+                        }
+                        if command_result(ui, &choice).clicked() {
+                            match choice.action {
+                                Action::Tool(tool) => {
+                                    let before = app.ui.tool;
+                                    app.ui.tool = tool;
+                                    self.tool_receipt = Some((before, tool));
+                                }
+                                Action::Command(id) => {
+                                    self.invoke(app, &ctx, &id, json!({}));
+                                    self.tool_receipt = None;
+                                }
+                            }
+                            self.command_text.clear();
+                            close = true;
                         }
                     }
                 });
-            });
+        });
+        if close || modal.should_close() {
+            self.command_tray_open = false;
+            self.command_focus_requested = false;
+        }
     }
+}
+
+fn command_result(ui: &mut Ui, choice: &commands::Choice) -> egui::Response {
+    let t = Tokens::get(ui.ctx());
+    let mut text = egui::text::LayoutJob::default();
+    text.append(
+        &choice.label,
+        0.,
+        egui::TextFormat {
+            font_id: egui::FontId::proportional(14.),
+            color: t.text,
+            ..Default::default()
+        },
+    );
+    let suffix = if choice.enabled {
+        ""
+    } else {
+        " · unavailable for this document/layer"
+    };
+    text.append(
+        &format!("\n{}{suffix}", choice.path),
+        0.,
+        egui::TextFormat {
+            font_id: egui::FontId::proportional(11.),
+            color: t.text_dim,
+            ..Default::default()
+        },
+    );
+    let response = ui
+        .push_id((&choice.path, &choice.label), |ui| {
+            ui.add_enabled(
+                choice.enabled,
+                Button::new(text)
+                    .frame(false)
+                    .min_size(vec2(ui.available_width(), 48.)),
+            )
+        })
+        .inner;
+    response.widget_info(|| {
+        egui::WidgetInfo::labeled(
+            egui::WidgetType::Button,
+            choice.enabled,
+            format!("{}   ·   {}", choice.label, choice.path),
+        )
+    });
+    response
 }

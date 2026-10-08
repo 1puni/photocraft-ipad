@@ -152,7 +152,15 @@ impl TabletUi {
                         ("all", "All layers"),
                     ],
                 );
-                ui.label("Enable Alt, tap the source with Pencil, then disable Alt to paint.");
+                ui.label(if self.clone_source_pick {
+                    "Tap a source point on the canvas. Your next stroke will paint."
+                } else if app.session.presets.clone.active().source.is_some()
+                    || app.ui.clone_source.is_some()
+                {
+                    "Source ready. Paint with Pencil; Set source chooses a new point."
+                } else {
+                    "Tap Set source, then tap the pixels you want to copy."
+                });
             }
             Tool::SpotHealing => {
                 choice(

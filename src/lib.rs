@@ -1,7 +1,6 @@
 //! A touch workspace on PhotoCraft's shared engine, canvas and file services.
 pub mod commands;
 pub mod input;
-pub mod speech;
 pub mod workspace;
 
 #[cfg(target_arch = "wasm32")]
@@ -28,7 +27,6 @@ impl photocraft_web::web::BrowserWorkspace for BrowserWorkspace {
         app: &mut photocraft_ui_egui::PhotocraftApp,
     ) {
         input_web::install(canvas, ctx, self.contacts.clone(), app.stylus.feed.clone());
-        self.workspace.dictation.attach(ctx);
     }
 
     fn raw_input(&mut self, raw: &mut egui::RawInput) {
@@ -39,7 +37,8 @@ impl photocraft_web::web::BrowserWorkspace for BrowserWorkspace {
     fn logic(&mut self, app: &mut photocraft_ui_egui::PhotocraftApp, _ctx: &egui::Context) {
         let mut contacts = self.contacts.borrow_mut();
         if let Some(xf) = photocraft_ui_egui::canvas::ViewXform::active(app) {
-            contacts.area = app.ui.dialogs.is_empty().then_some(xf.rect);
+            contacts.area =
+                (app.ui.dialogs.is_empty() && !self.workspace.clone_source_pick).then_some(xf.rect);
             if let Some(view) = app
                 .session
                 .active_index()
@@ -61,15 +60,13 @@ impl photocraft_web::web::BrowserWorkspace for BrowserWorkspace {
         ui: &mut egui::Ui,
         _frame: &mut eframe::Frame,
     ) {
-        self.workspace
-            .dictation
-            .place_button(None, 1., egui::Color32::WHITE, egui::Color32::WHITE);
         photocraft_ui_egui::touch_ui::set_enabled(ui.ctx(), true);
         app.ui_with_workspace(ui, |app, ui| self.workspace.show(app, ui));
-        self.contacts.borrow_mut().area = if app.ui.dialogs.is_empty() {
-            photocraft_ui_egui::canvas::ViewXform::active(app).map(|xf| xf.rect)
-        } else {
-            None
-        };
+        self.contacts.borrow_mut().area =
+            if app.ui.dialogs.is_empty() && !self.workspace.clone_source_pick {
+                photocraft_ui_egui::canvas::ViewXform::active(app).map(|xf| xf.rect)
+            } else {
+                None
+            };
     }
 }
