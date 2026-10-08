@@ -1,5 +1,19 @@
 # Local verification — 2026-10-08
 
+## Command-shelf integration checks
+
+Implementation commit `2ba5edf` is integrated as `989c3ae`, with the publishing
+README, licensing and build scripts preserved. Fresh checks in the publishing
+checkout passed formatting, all 26 tests, and native plus WebAssembly Clippy
+with crate warnings denied. The three existing upstream Wasm dead-code warnings
+are unchanged. The full-history Gitleaks scan found no secrets.
+The optimized Wasm build and locked license packaging also passed, completing
+at 15:26 UTC. No dependency versions, license policy or engine patch changed.
+
+The command/voice browser acceptance below was performed by the implementation
+session on the same source batch. It is distinct from microphone acceptance on
+the physical iPad. Engine tree and the five-patch series are unchanged.
+
 ## Public readiness checks
 
 Fresh GitHub clone of `82be479`, including the Layers stack and navigation work

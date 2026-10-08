@@ -15,36 +15,41 @@ switch.** The hosted demo and optional tips remain separate future decisions.
   including the latest UI work, with zero findings. The reachable file inventory
   contains source, docs, patches and our screenshots; no credentials, personal
   documents or private operational logs. Original commit authorship is preserved.
-- [x] **Clean-clone build and distribution:** 19 tests, formatting, Clippy,
-  optimized Wasm build, server boundary test and packaged notices passed. Fresh
-  browser captures show the integrated UI. A failed license check preserves the
-  served preview byte-for-byte. Results are in [verification](verification.md).
+- [x] **Build and distribution:** the initial clean-clone pass covered 19 tests,
+  formatting, Clippy, optimized Wasm, the server boundary and packaged notices.
+  After integrating the command shelf, all 26 tests, formatting, native/Wasm
+  Clippy, optimized build and license packaging passed again. Browser acceptance
+  and screenshot provenance are recorded in [verification](verification.md).
+  A failed license check preserves the served preview byte-for-byte.
 - [x] **Private security reports:** [SECURITY.md](../SECURITY.md) points to
   `gg@1puni.com`, the existing GG inbox; read-only access verified during this pass.
-- [x] **Device status:** the [roadmap](ipad-port.md) records physical Pencil tests
-  and workflow refinements as upcoming v0.1 work. Automated/browser evidence is
+- [x] **Device status:** the [roadmap](ipad-port.md) records physical Pencil and
+  iPad microphone tests plus workflow refinements as upcoming v0.1 work. Automated/browser evidence is
   kept separately in the test record. These are development work, not a reason
   to keep the source closed.
 - [ ] **Public visibility:** awaiting V's explicit go-ahead.
 
 ## Candidate and development handoff
 
-`82be479` integrates the publishing preparation with the other agent's `5eae0db`
-Layers stack and grouped tool navigation. All authorship and both histories are
-preserved. The engine is pinned to public baseline `5896f0b` plus five mail patches,
+`989c3ae` adds the command shelf and browser speech adapter from implementation
+commit `2ba5edf` on top of the reviewed `29bd591` preparation. The earlier
+`82be479` integrated the `5eae0db` Layers stack and grouped tool navigation.
+Original authorship and source commit provenance are preserved. The engine is
+pinned to public baseline `5896f0b` plus five mail patches,
 producing tree `7545cfe69924ec4f48fee63aa61ebf3ff82c48ac` (equivalent to `af949b1`).
 
 The publishing checkout is separate from ongoing development. Take in remote
-`main` before the next development push. If the development checkout is still at
-`5eae0db` and clean, this is a fast-forward:
+`main` before the next development push. The command batch was cherry-picked, so
+its original implementation branch should merge the prepared history:
 
 ```sh
 git fetch origin
-git merge --ff-only origin/main
+git merge origin/main
 ```
 
-If it has new commits or uncommitted work, preserve that work and merge normally;
-never reset it. Each checkout uses its own `target/` to avoid the stale-UI collision
+Preserve any new or uncommitted work before merging; never reset it or replay the
+same command batch again. Keep release documentation when resolving overlaps.
+Each checkout uses its own `target/` to avoid the stale-UI collision
 found during development. Update `upstream.env` and the patch series together when
 changing the engine, and rerun the license/build checks for the new candidate.
 
