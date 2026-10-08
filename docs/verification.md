@@ -154,3 +154,28 @@ The final optimized build with locked notices completed at 17:41 UTC. Mac Chrome
 ## Welcome attribution
 
 The empty workspace credits “iPad workspace by 1puni”, linked to this repository, with “Built on PhotoCraft” beneath it. It uses extension-owned chrome, retains the upstream welcome and attribution, and disappears when a document opens. All 49 tests, formatting, native Clippy and Wasm check pass. The optimized build with locked notices completed at 17:53 UTC; Chrome visibly showed both credit lines, then removed the credit strip after opening the synthetic nested-group PSD. No console errors were captured. Engine pin, patches and dependencies remain unchanged.
+
+## Layer arrangement
+
+Implementation `7939307` adds an explicit Arrange toggle and dedicated 44-point
+drag handles. One layer or group can move above, below or into a group using
+`layer.moveTo`. Ordinary name/thumbnail drags remain available for scrolling.
+Multi-selection and Quick Mask disable Arrange. Moving the active masked layer
+preserves its paint target; moving a different layer selects its image target.
+
+All 59 tests, formatting, native Clippy with warnings denied and Wasm check pass.
+Regressions cover nesting and one-step Undo, self/descendant rejection,
+multi-selection, mask targeting, Quick Mask gating, outside/Escape/touch-cancel
+drops, hidden-panel cancellation and a clipped row behind the pinned footer.
+The row geometry matrix also runs with drag handles present. Review caught and
+fixed unclipped drop hit-testing and Quick Mask's extra history edit before the
+final build. Engine pin, patches and dependencies are unchanged.
+
+The optimized build with locked notices completed at 18:07 UTC. Chrome opened
+the synthetic nested-group PSD and moved its masked group above the outer
+group; one Undo restored the original hierarchy. Moving the image layer into
+another group worked, and dropping outside Layers left the hierarchy intact.
+The artwork remained unchanged. Console capture has no errors and only the
+existing SetTheme warning. The preview remains on port 4876; other review
+documents were preserved. Physical Pencil drag/scroll acceptance, multi-layer
+dragging and long-stack edge autoscroll remain open.
