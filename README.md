@@ -58,8 +58,10 @@ Switching targets finishes Quick Mask while preserving the selection you edited.
 Layers scroll independently above pinned actions. Nested groups and masked layers
 use compact or two-line rows to keep names readable and targets easy to hit;
 image and mask thumbnails stay distinct as the workspace resizes.
-Switch on **Arrange** for dedicated handles that move one layer or group above,
-below or into another group, with one-step Undo. Hold the dragged handle near
+Switch on **Arrange** for dedicated handles that move a layer, group or selected
+set above, below or into another group. Selected layers keep their relative order
+and active target, with one-step Undo restoring the order and selection.
+Hold the dragged handle near
 the stack's top or bottom edge to scroll to offscreen layers. Ordinary row drags
 still scroll the stack.
 
