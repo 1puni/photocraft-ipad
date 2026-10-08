@@ -17,7 +17,29 @@ and a standalone segmentation evaluation. Hosted demos remain a separate project
 - [x] **Publication:** opened on 8 October 2026 at revision `f08c26a`. Anonymous
   GitHub API and README access verified; private vulnerability reporting enabled.
 
-## Delivered: native command entry and editing controls
+## Verified development snapshot — 8 October 2026
+
+Public source at
+[`872fac9`](https://github.com/1puni/photocraft-ipad/commit/872fac9ca3e62ef57021425215a96c30e29ee1d9)
+includes the native-keyboard correction, Colour studio, docked mask controls,
+readable nested layer rows, welcome attribution, and single-layer/group Arrange
+with edge autoscroll. The README through `080d724` presents these workflows with
+attributed screenshots; [visual provenance](visuals.md) identifies their build.
+
+The merged source, build configuration and pins match tested implementation
+`9d60555`. All **62 tests**, formatting, native Clippy with warnings denied and
+Wasm check passed. The publication checkout independently passed the 62 tests.
+The optimized build and locked dependency notices completed at 18:20 UTC.
+Chrome acceptance on a synthetic 29-layer PSD covered normal row scrolling,
+handle-based movement at a scrolled position and Undo, with no console errors.
+Continuous edge holds, offscreen targeting, cancellation and short portrait docks
+have synthetic UI coverage. Physical Pencil acceptance remains on the
+[roadmap](ipad-port.md), along with multi-layer dragging and the remaining port.
+
+The engine tree, five patches and dependency lockfile are unchanged. Detailed
+feature and browser evidence stays in the [test record](verification.md).
+
+## First public development batch
 
 The first public development batch landed on 8 October 2026 in
 [`66c5572`](https://github.com/1puni/photocraft-ipad/commit/66c5572b733c9a01d14684c249ecc2789522c3cd),
