@@ -87,7 +87,7 @@ A shared Cargo target collision with the OSS review copy initially linked stale 
 
 No upstream PR was submitted as part of these checks.
 
-## Historical command shelf and browser speech adapter (superseded)
+## Command shelf and browser speech adapter (replacement planned)
 
 The earlier "planned" voice boundary above is superseded by this implementation slice. Typed search and recognized text use the live menu catalogue and all 49 tool names. Exact tool switches can execute on Enter or a final utterance; the search button only opens results. Menu/document actions require choosing their labelled result. Generic "selection tool" recalls the last selection instrument. Parameters use the existing dialogs; arbitrary natural-language parameter editing is not implemented.
 

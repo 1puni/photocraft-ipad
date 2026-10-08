@@ -12,7 +12,7 @@ The workspace keeps familiar editor navigation and precise Pencil targets: a scr
 
 Review each surface as an editing workflow, not as proof that a command can be found in a list. The hierarchy and rail are the first design pass; effects, selections, colours, presets and file workflows still require individual refinement.
 
-Command search opens from the top bar when needed. It uses normal text input, including native iPad keyboard dictation, and the same live tool/menu catalogue. Ambiguous targets show labelled choices; parameters use existing dialogs. The permanent bottom command shelf and custom browser recognizer are being removed in the release correction.
+The next command-search pass opens from the top bar when needed. It will use normal text input, including native iPad keyboard dictation, and the same live tool/menu catalogue. Ambiguous targets show labelled choices; parameters use existing dialogs. This replaces the current permanent bottom command shelf and custom browser recognizer.
 
 The next layout pass keeps one unrestricted Studio, with Photography and Illustration as optional saved arrangements. These change visible panels while retaining the same tools, documents and settings. A single edge dock connects layer targets, properties and deeper brush/colour/adjustment controls to the canvas, with collapsed, working and expanded states. The intended working sizes are roughly 304 points in landscape and a 300-point bottom dock in portrait. The context strip stays within one row of two to four relevant controls.
 
