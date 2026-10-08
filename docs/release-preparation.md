@@ -39,12 +39,14 @@ pinned to public baseline `5896f0b` plus five mail patches,
 producing tree `7545cfe69924ec4f48fee63aa61ebf3ff82c48ac` (equivalent to `af949b1`).
 
 The publishing checkout is separate from ongoing development. Take in remote
-`main` before the next development push. The command batch was cherry-picked, so
-its original implementation branch should merge the prepared history:
+`main` before the next development push. The publishing history now also includes
+the implementation merge `5afa515` and verification receipt `aab1e7a`. A clean
+implementation checkout still at `aab1e7a` can fast-forward; newer work should
+merge normally:
 
 ```sh
 git fetch origin
-git merge origin/main
+git merge --ff-only origin/main
 ```
 
 Preserve any new or uncommitted work before merging; never reset it or replay the

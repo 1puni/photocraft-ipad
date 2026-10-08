@@ -82,7 +82,7 @@ Tests exercise the Rust workspace, shared touch controls, input policies and bro
 
 A shared Cargo target collision with the OSS review copy initially linked stale UI despite a new output hash. Build output is now isolated under this checkout’s target directory; the browser visibly shows the new rail and Layers stack. The existing layer-reveal helper is exposed by the base fork; its two tests and base lint/layer checks pass.
 
-Release preparation and source may be pushed privately; public visibility awaits V’s go-ahead. No upstream PR has been submitted.
+Release preparation and source may be pushed privately; public visibility awaits V’s go-ahead. No upstream PR has been submitted. Initial visibility remains with the publishing session; implementation sends recurring verified handoffs. Implementation/validation logs are local temporary operational evidence, not publication artifacts.
 
 ## Command shelf and browser speech adapter
 
@@ -93,3 +93,9 @@ The browser microphone button starts a single recognizer directly from the user'
 The command tray replaces the portrait inspector temporarily and preserves its state. Tests retain at least 160 points of canvas in a 507×450 viewport representing keyboard pressure. Listening hides previous query results; cancellation cannot execute their actions. Crop, transform and type Apply/Cancel remain reachable. Extension validation: 26 tests pass, native and wasm Clippy pass with warnings denied for this crate. Three unchanged upstream wasm dead-code warnings remain.
 
 Optimized preview built and staged at 15:09 UTC. Mac Chrome reopened the saved image/mask PSD, searched "switch to eraser tool" without switching, switched on Enter, restored Brush with the tool-revert action, and searched Levels. Choosing Image / Adjustments opened the shared Levels dialog; Cancel returned to the unchanged document. The native microphone overlay disappeared while the dialog was open and returned afterward. This validates command dispatch and overlay placement, not microphone recognition on either device.
+
+## Canonical integration check
+
+Merge `5afa515` retains the release preparation through `29bd591` and command implementation `2ba5edf`, preserving both histories. Engine `af949b1` remains tree `7545cfe69924ec4f48fee63aa61ebf3ff82c48ac`; the five-patch series, `upstream.env`, lockfile, presentation and notice-generation scripts are unchanged from the release candidate.
+
+Fresh checks in the implementation checkout's isolated target passed: formatting, all 26 tests plus binary/doc-test targets, native Clippy with warnings denied, Wasm check, server boundary test, and the canonical optimized build. Dependency notice generation passed with `cargo-about 0.9.2 --locked --fail`; all 240 runtime/build packages remain represented. The combined distribution was staged at 15:20 UTC. The running port 4876 served its editor and dependency license page; the served license page matched the generated file byte-for-byte. Repository visibility remained private. Device speech and measured Pencil acceptance remain open.
