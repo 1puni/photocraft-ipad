@@ -87,7 +87,7 @@ A shared Cargo target collision with the OSS review copy initially linked stale 
 
 No upstream PR was submitted as part of these checks.
 
-## Historical command shelf and browser speech adapter (superseded)
+## Command shelf and browser speech adapter (replacement planned)
 
 The historical `2ba5edf` implementation added a bottom command shelf and browser speech adapter, since replaced by on-demand search and native keyboard transcription. That revision passed 26 tests and native/Wasm Clippy; it never established physical iPad microphone acceptance. Current behavior is described below.
 
