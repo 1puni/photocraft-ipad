@@ -1,4 +1,7 @@
-# Local verification — 2026-10-08
+# Verification record — 2026-10-08
+
+Entries identify the revision and environment tested. Historical implementation
+snapshots are retained below; the roadmap describes the current direction.
 
 ## Command-shelf integration checks
 
@@ -82,9 +85,9 @@ Tests exercise the Rust workspace, shared touch controls, input policies and bro
 
 A shared Cargo target collision with the OSS review copy initially linked stale UI despite a new output hash. Build output is now isolated under this checkout’s target directory; the browser visibly shows the new rail and Layers stack. The existing layer-reveal helper is exposed by the base fork; its two tests and base lint/layer checks pass.
 
-Release preparation and source may be pushed privately; public visibility awaits V’s go-ahead. No upstream PR has been submitted. Initial visibility remains with the publishing session; implementation sends recurring verified handoffs. Implementation/validation logs are local temporary operational evidence, not publication artifacts.
+No upstream PR was submitted as part of these checks.
 
-## Command shelf and browser speech adapter
+## Historical command shelf and browser speech adapter (superseded)
 
 The earlier "planned" voice boundary above is superseded by this implementation slice. Typed search and recognized text use the live menu catalogue and all 49 tool names. Exact tool switches can execute on Enter or a final utterance; the search button only opens results. Menu/document actions require choosing their labelled result. Generic "selection tool" recalls the last selection instrument. Parameters use the existing dialogs; arbitrary natural-language parameter editing is not implemented.
 
