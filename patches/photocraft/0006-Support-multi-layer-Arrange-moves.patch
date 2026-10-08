@@ -1,0 +1,391 @@
+From 21a573cb94c31a862afc2f201976639b758631c2 Mon Sep 17 00:00:00 2001
+From: Evita Stenqvist <evita@stenqvist.co>
+Date: Thu, 8 Oct 2026 20:32:27 +0200
+Subject: [PATCH] Support multi-layer Arrange moves
+
+---
+ crates/engine/src/commands.rs         |  53 +----
+ crates/engine/src/layer_multi_cmds.rs | 292 ++++++++++++++++++++++++++
+ 2 files changed, 301 insertions(+), 44 deletions(-)
+
+diff --git a/crates/engine/src/commands.rs b/crates/engine/src/commands.rs
+index 6da63b6..70df6f9 100644
+--- a/crates/engine/src/commands.rs
++++ b/crates/engine/src/commands.rs
+@@ -694,45 +694,15 @@ fn build() -> Vec<CommandSpec> {
+             })?;
+             Ok(Value::Null)
+         }),
+-        cmd!("layer.moveTo", "Reorder Layer", [], None, r##"{"layer":id?,"target":id,"position":"above|below|into"="above"}"##, has_layer, |s, p| {
+-            let id = layer_param(s, p)?;
+-            let target = LayerId(p.get("target").and_then(Value::as_u64).ok_or_else(|| bad("layer.moveTo", "missing `target`"))?);
+-            let pos = p.get("position").and_then(Value::as_str).unwrap_or("above").to_string();
+-            if id == target {
+-                return Ok(Value::Null);
+-            }
+-            s.edit("Reorder Layers", |doc, active| {
+-                // Refuse to move a group into itself or its descendants.
+-                if doc.layer(id).is_some_and(|l| contains_layer(l, target)) {
+-                    return Err(EngineError::Other("can't move a group into itself".into()));
+-                }
+-                let layer = doc.remove(id).ok_or(EngineError::NoLayer(id))?;
+-                let path = doc.path_of(target).ok_or(EngineError::NoLayer(target))?;
+-                match pos.as_str() {
+-                    "into" => {
+-                        let g = doc.layer_at_mut(&path).and_then(|t| t.children_mut()).ok_or_else(|| EngineError::Other("target is not a group".into()))?;
+-                        g.push(layer);
+-                    }
+-                    other => {
+-                        let (&last, parent) = path.split_last().ok_or(EngineError::NoLayer(target))?;
+-                        let sib = if parent.is_empty() {
+-                            &mut doc.layers
+-                        } else {
+-                            doc.layer_at_mut(parent)
+-                                .and_then(|t| t.children_mut())
+-                                .ok_or_else(|| EngineError::Other("target's parent is not a group".into()))?
+-                        };
+-                        let at = if other == "below" { last } else { last + 1 };
+-                        sib.insert(at.min(sib.len()), layer);
+-                    }
+-                }
+-                // Moving a group into (or beside) a deeply nested layer can pass the nesting cap.
+-                crate::layer_multi_cmds::check_group_depth(doc, "Reorder Layer")?;
+-                *active = Some(id);
+-                Ok(())
+-            })?;
+-            Ok(Value::Null)
+-        }),
++        cmd!(
++            "layer.moveTo",
++            "Reorder Layer",
++            [],
++            None,
++            r##"{"layer":id? | "layers":[id,...],"target":id,"position":"above|below|into"="above"}"##,
++            has_layer,
++            crate::layer_multi_cmds::move_to
++        ),
+         cmd!(
+             "layer.translate",
+             "Move Layer",
+@@ -1183,8 +1153,3 @@ pub(crate) fn translate_layer(doc: &Document, l: &mut Layer, dx: i32, dy: i32) {
+         _ => {}
+     }
+ }
+-
+-/// Does `l` (or any descendant) have id `target`?
+-fn contains_layer(l: &Layer, target: LayerId) -> bool {
+-    l.id == target || l.children().is_some_and(|c| c.iter().any(|c| contains_layer(c, target)))
+-}
+diff --git a/crates/engine/src/layer_multi_cmds.rs b/crates/engine/src/layer_multi_cmds.rs
+index 54e3c40..66acde2 100644
+--- a/crates/engine/src/layer_multi_cmds.rs
++++ b/crates/engine/src/layer_multi_cmds.rs
+@@ -196,6 +196,131 @@ fn bad(cmd: &str, msg: impl Into<String>) -> EngineError {
+ 
+ // ---------- moving layers ----------
+ 
++/// `layer.moveTo`: reorder one legacy layer, or the explicitly supplied layer block, as one edit.
++pub fn move_to(s: &mut Session, p: &Value) -> Result<Value> {
++    const CMD: &str = "layer.moveTo";
++    let explicit = p.get("layers");
++    if explicit.is_some() && p.get("layer").is_some() {
++        return Err(bad(CMD, "use either `layer` or `layers`, not both"));
++    }
++    let (requested, explicit) = if let Some(value) = explicit {
++        let values = value.as_array().ok_or_else(|| bad(CMD, "`layers` must be an array of layer ids"))?;
++        if values.is_empty() {
++            return Err(bad(CMD, "`layers` must contain at least one layer id"));
++        }
++        let ids = values
++            .iter()
++            .enumerate()
++            .map(|(index, value)| value.as_u64().map(LayerId).ok_or_else(|| bad(CMD, format!("`layers[{index}]` = {value} is not a valid id"))))
++            .collect::<Result<Vec<_>>>()?;
++        (ids, true)
++    } else {
++        (vec![crate::commands::layer_param(s, p)?], false)
++    };
++    let target = LayerId(p.get("target").and_then(Value::as_u64).ok_or_else(|| bad(CMD, "`target` must be a valid layer id"))?);
++    let position = match p.get("position") {
++        None => "above",
++        Some(Value::String(position)) if matches!(position.as_str(), "above" | "below" | "into") => position,
++        Some(value) => return Err(bad(CMD, format!("`position` = {value} must be `above`, `below` or `into`"))),
++    };
++
++    let before = s.active().ok_or(EngineError::NoDocument)?.doc.clone();
++    let roots = normalized_move_roots(&before, &requested)?;
++    // A target chosen from any selected row is a deliberate no-op, including a selected child
++    // that normalization drops because its selected parent carries it.
++    if requested.contains(&target) {
++        if before.layer(target).is_none() {
++            return Err(EngineError::NoLayer(target));
++        }
++        return Ok(Value::Null);
++    }
++    let before_shape = layer_tree_shape(&before);
++    let mut after = (*before).clone();
++    reorder_layers(&mut after, &roots, target, position)?;
++    check_group_depth(&after, "Reorder Layers")?;
++    if layer_tree_shape(&after) == before_shape {
++        return Ok(Value::Null);
++    }
++
++    let legacy_active = roots.last().copied();
++    if explicit && let Some(state) = s.active_mut() {
++        state.history.set_current_layers(photocraft_ops::LayerTarget { active: state.active_layer, selected: state.selected_layers.clone() });
++    }
++    s.edit("Reorder Layers", |doc, active| {
++        *doc = after;
++        if !explicit {
++            *active = legacy_active;
++        }
++        Ok(())
++    })?;
++    Ok(Value::Null)
++}
++
++fn normalized_move_roots(doc: &Document, requested: &[LayerId]) -> Result<Vec<LayerId>> {
++    for id in requested {
++        if doc.layer(*id).is_none() {
++            return Err(EngineError::NoLayer(*id));
++        }
++    }
++    let mut unique = Vec::with_capacity(requested.len());
++    for id in requested {
++        if !unique.contains(id) {
++            unique.push(*id);
++        }
++    }
++    let roots = top_level(doc, &unique);
++    if roots.is_empty() {
++        return Err(EngineError::Other("no layer selected".into()));
++    }
++    Ok(roots)
++}
++
++fn layer_tree_shape(doc: &Document) -> Vec<(LayerId, Option<LayerId>)> {
++    doc.walk()
++        .into_iter()
++        .map(|(path, _, layer)| {
++            let parent = path.get(..path.len().saturating_sub(1)).and_then(|parent| doc.layer_at(parent)).map(|layer| layer.id);
++            (layer.id, parent)
++        })
++        .collect()
++}
++
++fn reorder_layers(doc: &mut Document, roots: &[LayerId], target: LayerId, position: &str) -> Result<()> {
++    let target_path = doc.path_of(target).ok_or(EngineError::NoLayer(target))?;
++    for root in roots {
++        let root_path = doc.path_of(*root).ok_or(EngineError::NoLayer(*root))?;
++        if target_path.starts_with(&root_path) {
++            return Err(EngineError::Other("can't move a layer relative to its descendant".into()));
++        }
++    }
++    if position == "into" && doc.layer(target).and_then(Layer::children).is_none() {
++        return Err(EngineError::Other("target is not a group".into()));
++    }
++
++    // All IDs, target relationships, and insertion destinations are checked before removal.
++    let mut moving = Vec::with_capacity(roots.len());
++    for id in roots {
++        moving.push((*id, doc.remove(*id).ok_or(EngineError::NoLayer(*id))?));
++    }
++    let target_path = doc.path_of(target).ok_or(EngineError::NoLayer(target))?;
++    if position == "into" {
++        let children = doc.layer_at_mut(&target_path).and_then(Layer::children_mut).ok_or_else(|| EngineError::Other("target is not a group".into()))?;
++        children.extend(moving.into_iter().map(|(_, layer)| layer));
++    } else {
++        let (&target_index, parent) = target_path.split_last().ok_or(EngineError::NoLayer(target))?;
++        let siblings = if parent.is_empty() {
++            &mut doc.layers
++        } else {
++            doc.layer_at_mut(parent).and_then(Layer::children_mut).ok_or_else(|| EngineError::Other("target's parent is not a group".into()))?
++        };
++        let insertion = if position == "below" { target_index } else { target_index.saturating_add(1) }.min(siblings.len());
++        for (offset, (_, layer)) in moving.into_iter().enumerate() {
++            siblings.insert(insertion.saturating_add(offset).min(siblings.len()), layer);
++        }
++    }
++    Ok(())
++}
++
+ fn link_groups(doc: &Document, ids: &[LayerId]) -> Vec<u64> {
+     let mut g: Vec<u64> = ids.iter().filter_map(|id| doc.layer(*id)?.link_group).collect();
+     g.sort_unstable();
+@@ -862,6 +987,173 @@ mod tests {
+         s.active().unwrap().last_damage
+     }
+ 
++    fn tree(s: &Session) -> Vec<(LayerId, Option<LayerId>)> {
++        layer_tree_shape(doc(s))
++    }
++
++    fn group_layer(s: &mut Session, name: &str, children: Vec<Layer>) -> LayerId {
++        let group = Layer::group(name, children);
++        let id = group.id;
++        s.edit("test group", |doc, active| {
++            doc.insert_above(doc.top_layer(), group);
++            *active = Some(id);
++            Ok(())
++        })
++        .unwrap();
++        id
++    }
++
++    #[test]
++    fn move_to_reorders_a_block_in_document_order_above_below_and_into() {
++        let mut s = session(8);
++        let bg = doc(&s).layers[0].id;
++        let a = rect_layer(&mut s, Rect::new(0, 0, 1, 1));
++        let b = rect_layer(&mut s, Rect::new(0, 0, 1, 1));
++        let c = rect_layer(&mut s, Rect::new(0, 0, 1, 1));
++        let d = rect_layer(&mut s, Rect::new(0, 0, 1, 1));
++        let target = group_layer(&mut s, "Target", vec![]);
++        s.execute("layer.moveTo", json!({"layers": [d.0, b.0, d.0], "target": a.0, "position": "above"})).unwrap();
++        assert_eq!(tree(&s).iter().map(|(id, _)| *id).collect::<Vec<_>>(), vec![bg, a, b, d, c, target]);
++        s.execute("layer.moveTo", json!({"layers": [b.0, d.0], "target": c.0, "position": "below"})).unwrap();
++        assert_eq!(tree(&s).iter().map(|(id, _)| *id).collect::<Vec<_>>(), vec![bg, a, b, d, c, target]);
++        s.execute("layer.moveTo", json!({"layers": [d.0, b.0], "target": target.0, "position": "into"})).unwrap();
++        assert_eq!(tree(&s), vec![(bg, None), (a, None), (c, None), (target, None), (b, Some(target)), (d, Some(target))]);
++    }
++
++    #[test]
++    fn move_to_handles_cross_parent_roots_and_deduplicates_selected_ancestors() {
++        let mut s = session(8);
++        let bg = doc(&s).layers[0].id;
++        let child_a = Layer::raster("Child A", doc(&s).pixel_format());
++        let child_b = Layer::raster("Child B", doc(&s).pixel_format());
++        let child_a_id = child_a.id;
++        let child_b_id = child_b.id;
++        let group = group_layer(&mut s, "Group", vec![child_a, child_b]);
++        let outside = rect_layer(&mut s, Rect::new(0, 0, 1, 1));
++        let anchor = rect_layer(&mut s, Rect::new(0, 0, 1, 1));
++        s.execute("layer.moveTo", json!({"layers": [child_a_id.0, outside.0, group.0, child_b_id.0], "target": anchor.0, "position": "above"})).unwrap();
++        assert_eq!(tree(&s), vec![(bg, None), (anchor, None), (group, None), (child_a_id, Some(group)), (child_b_id, Some(group)), (outside, None)]);
++        // A target that was explicitly selected is a no-op, even when it is a selected child
++        // that gets subsumed by its selected ancestor during normalization.
++        let before = tree(&s);
++        let history = s.active().unwrap().history.entries().len();
++        s.execute("layer.moveTo", json!({"layers": [group.0, child_a_id.0], "target": child_a_id.0})).unwrap();
++        assert_eq!(tree(&s), before);
++        assert_eq!(s.active().unwrap().history.entries().len(), history);
++    }
++
++    #[test]
++    fn move_to_preserves_explicit_selection_and_undo_redo_restores_tree_and_target() {
++        let mut s = session(8);
++        let bg = doc(&s).layers[0].id;
++        let a = rect_layer(&mut s, Rect::new(0, 0, 1, 1));
++        let b = rect_layer(&mut s, Rect::new(0, 0, 1, 1));
++        let target = rect_layer(&mut s, Rect::new(0, 0, 1, 1));
++        set_selection(&mut s, vec![a, b], Some(a), Some(b)).unwrap();
++        let before = tree(&s);
++        let count = s.active().unwrap().history.entries().len();
++        s.execute("layer.moveTo", json!({"layers": [a.0, b.0], "target": target.0, "position": "above"})).unwrap();
++        assert_eq!(tree(&s), vec![(bg, None), (target, None), (a, None), (b, None)]);
++        assert_eq!(s.active().unwrap().active_layer, Some(a));
++        assert_eq!(sel(&s), vec![a, b]);
++        assert_eq!(s.active().unwrap().history.entries().len(), count + 1);
++        assert!(s.undo());
++        assert_eq!(tree(&s), before);
++        assert_eq!(s.active().unwrap().active_layer, Some(a));
++        assert_eq!(sel(&s), vec![a, b]);
++        assert!(s.redo());
++        assert_eq!(tree(&s), vec![(bg, None), (target, None), (a, None), (b, None)]);
++        assert_eq!(s.active().unwrap().active_layer, Some(a));
++        assert_eq!(sel(&s), vec![a, b]);
++    }
++
++    #[test]
++    fn move_to_rejects_bad_inputs_and_cycles_without_touching_document_or_history() {
++        let mut s = session(8);
++        let child = Layer::raster("Child", doc(&s).pixel_format());
++        let child_id = child.id;
++        let group = group_layer(&mut s, "Group", vec![child]);
++        let other = rect_layer(&mut s, Rect::new(0, 0, 1, 1));
++        let before = tree(&s);
++        let history = s.active().unwrap().history.entries().len();
++        for params in [
++            json!({"layers": [], "target": other.0}),
++            json!({"layers": "bad", "target": other.0}),
++            json!({"layers": ["bad"], "target": other.0}),
++            json!({"layers": [-1], "target": other.0}),
++            json!({"layers": [999999], "target": other.0}),
++            json!({"layers": [other.0], "layer": other.0, "target": group.0}),
++            json!({"layers": [other.0], "target": other.0, "position": 9}),
++            json!({"layers": [other.0], "target": other.0, "position": "sideways"}),
++            json!({"layers": [other.0], "target": 999999}),
++        ] {
++            assert!(s.execute("layer.moveTo", params).is_err());
++            assert_eq!(tree(&s), before);
++            assert_eq!(s.active().unwrap().history.entries().len(), history);
++        }
++        assert!(s.execute("layer.moveTo", json!({"layers": [group.0], "target": child_id.0, "position": "into"})).is_err());
++        assert_eq!(tree(&s), before);
++        assert_eq!(s.active().unwrap().history.entries().len(), history);
++    }
++
++    #[test]
++    fn move_to_rejects_group_depth_overflow_atomically() {
++        let mut s = session(8);
++        let mut nested = Layer::raster("Deep leaf", doc(&s).pixel_format());
++        let mut target = LayerId(0);
++        for depth in 0..photocraft_doc::MAX_GROUP_DEPTH {
++            let group = Layer::group(format!("Nested {depth}"), vec![nested]);
++            if depth == 0 {
++                target = group.id;
++            }
++            nested = group;
++        }
++        let source_child = Layer::raster("Source child", doc(&s).pixel_format());
++        let source = Layer::group("Source", vec![source_child]);
++        let source_id = source.id;
++        s.edit("deep fixture", |doc, active| {
++            doc.layers.push(nested);
++            doc.layers.push(source);
++            *active = Some(source_id);
++            Ok(())
++        })
++        .unwrap();
++        assert_eq!(doc(&s).max_group_depth(), photocraft_doc::MAX_GROUP_DEPTH);
++        let before = tree(&s);
++        let history = s.active().unwrap().history.entries().len();
++        assert!(s.execute("layer.moveTo", json!({"layers": [source_id.0], "target": target.0, "position": "into"})).is_err());
++        assert_eq!(tree(&s), before);
++        assert_eq!(s.active().unwrap().history.entries().len(), history);
++    }
++
++    #[test]
++    fn move_to_keeps_legacy_active_layer_semantics_and_skips_already_in_place_blocks() {
++        let mut s = session(8);
++        let bg = doc(&s).layers[0].id;
++        let a = rect_layer(&mut s, Rect::new(0, 0, 1, 1));
++        let b = rect_layer(&mut s, Rect::new(0, 0, 1, 1));
++        let target = rect_layer(&mut s, Rect::new(0, 0, 1, 1));
++        set_selection(&mut s, vec![a, b], Some(b), Some(a)).unwrap();
++        let history = s.active().unwrap().history.entries().len();
++        s.execute("layer.moveTo", json!({"layers": [a.0, b.0], "target": target.0, "position": "above"})).unwrap();
++        assert_eq!(tree(&s), vec![(bg, None), (target, None), (a, None), (b, None)]);
++        assert_eq!(s.active().unwrap().active_layer, Some(b));
++        let count = s.active().unwrap().history.entries().len();
++        // The block is already immediately above the target; this must not create a history step.
++        s.execute("layer.moveTo", json!({"layers": [a.0, b.0], "target": target.0, "position": "above"})).unwrap();
++        assert_eq!(s.active().unwrap().history.entries().len(), count);
++        s.execute("layer.moveTo", json!({"layer": a.0, "target": a.0})).unwrap();
++        assert_eq!(s.active().unwrap().active_layer, Some(b));
++        assert_eq!(s.active().unwrap().history.entries().len(), count);
++        s.execute("layer.moveTo", json!({"target": a.0, "position": "below"})).unwrap();
++        assert_eq!(tree(&s), vec![(bg, None), (target, None), (b, None), (a, None)]);
++        assert_eq!(s.active().unwrap().active_layer, Some(b), "omitted `layer` moves the active layer");
++        s.execute("layer.moveTo", json!({"layer": a.0, "target": bg.0, "position": "below"})).unwrap();
++        assert_eq!(s.active().unwrap().active_layer, Some(a));
++        assert_eq!(s.active().unwrap().history.entries().len(), count + 2);
++        assert!(history < count);
++    }
++
+     #[test]
+     fn moves_and_layer_props_report_only_their_area() {
+         let mut s = session(8);
+-- 
+2.52.0
+

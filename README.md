@@ -71,8 +71,9 @@ contributors, supplies the image editor underneath: its formats, rendering,
 brush engine and shared controls. This independent [1puni](https://1puni.com)
 project brings that foundation to a dedicated iPad workspace.
 
-Reusable engine improvements are kept as five reviewable patches: browser host
-hooks, touch controls, batched pen fidelity, responsive dialogs, and layer reveal. Our
+Reusable engine improvements are kept as six reviewable patches: browser host
+hooks, touch controls, batched pen fidelity, responsive dialogs, layer reveal,
+and multi-layer arrangement. Our
 [upstream notes](docs/upstream.md) explain the proposed contribution path and
 recognize the other mobile and browser projects working nearby.
 
