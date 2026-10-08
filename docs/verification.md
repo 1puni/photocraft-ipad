@@ -280,3 +280,40 @@ Opacity itself restores correctly. The dock does not introduce this behavior;
 the shared engine explicitly tests it. Improving selection capture for property
 edits is a separate history follow-up, and target preservation on Undo is not
 claimed for this batch.
+
+## Undo keeps the pre-edit layer selection
+
+Implementation `28afe7a` packages engine patch seven, `a28993e`. A successful
+new `Session::edit` transaction records the live pre-edit active layer and
+selected set with its Undo snapshot. Selecting a layer alone remains outside
+history. Subsequent coalesced updates preserve the gesture's original Undo
+target, while Redo restores its final target. Failed edits do not alter history
+target metadata. The earlier Arrange-only capture is now handled by this shared
+path. No history representation, dependency or lockfile changed.
+
+The held-opacity UI regression failed against the previous engine: select an
+older layer, drag opacity, then Undo incorrectly targets the newer layer. It
+now passes and checks both Undo and Redo selection. All 73 extension tests,
+formatting, native Clippy with warnings denied and Wasm check pass. All 783
+non-ignored engine unit tests, integration/doc targets, seven history tests,
+layering, workspace Wasm and the opt-in adversarial-command check pass. The
+existing target-restoration regression remains unchanged. The Merge Layers
+regression now verifies the complete pre-merge selection on Undo and the merged
+layer on Redo, across 8/16/32-bit documents.
+
+Engine Clippy passes with the same two existing lint categories allowed as in
+the selected-layer Arrange batch (`nonminimal_bool`, `manual_range_contains`);
+this remains a qualified engine result. A fresh local clone applying all seven
+mail patches to the unchanged public baseline reproduced tree
+`62cc2633db6d09647e80dfa2e053539bfcdaff05`, matching `upstream.env`.
+
+The optimized build with locked notices completed at 19:05 UTC. In a fresh
+Chrome document, the same synthetic PSD opened with its outer group selected.
+Selecting the pixel layer and dragging its docked opacity from 100% to 39%
+faded the artwork. One Undo restored 100% and kept the pixel layer active; Redo
+restored 39% on that same layer. A final Undo and return to the stack visibly
+retained the selected image thumbnail and original artwork. No console errors
+were captured; only the existing SetTheme warning remains. This supersedes the
+Undo selection limitation recorded in the docked-properties batch. The preview
+is served on port 4876, previous review documents remain open, and physical
+Pencil acceptance remains separate.
