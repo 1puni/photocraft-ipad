@@ -84,12 +84,44 @@ impl TabletUi {
     }
 
     pub(super) fn layers(&mut self, app: &mut PhotocraftApp, ui: &mut Ui) {
-        if self.mask_controls.is_some() && self.mask_controls_panel(app, ui) {
-            return;
+        if self.mask_controls.is_some() {
+            self.layer_arrange_drag = None;
+            if self.mask_controls_panel(app, ui) {
+                return;
+            }
         }
         let reveal = layer_reveal::track(app, ui.ctx());
+        let selected_count = app
+            .session
+            .active()
+            .map_or(0, |st| st.selected_layers().len());
+        let quick_mask = app
+            .session
+            .active()
+            .is_some_and(|st| st.doc.quick_mask.is_some());
+        if (selected_count > 1 || quick_mask) && self.arrange_layers {
+            self.arrange_layers = false;
+            self.layer_arrange_drag = None;
+        }
         ui.horizontal(|ui| {
             ui.strong("Layers");
+            let arrange_label = if quick_mask {
+                "Arrange layers · exit Quick Mask first"
+            } else if selected_count > 1 {
+                "Arrange layers · select one layer"
+            } else {
+                "Arrange layers"
+            };
+            let arrange = ui
+                .add_enabled_ui(selected_count <= 1 && !quick_mask, |ui| {
+                    navigation::icon_button(ui, "move", arrange_label, self.arrange_layers, 44.)
+                })
+                .inner
+                .on_hover_text(arrange_label);
+            if arrange.clicked() {
+                self.arrange_layers = !self.arrange_layers;
+                self.layer_arrange_drag = None;
+            }
             if navigation::icon_button(
                 ui,
                 "check",
@@ -109,10 +141,21 @@ impl TabletUi {
             }
         });
         let Some(st) = app.session.active() else {
+            self.layer_arrange_drag = None;
             ui.label("Open an image to work with layers.");
             return;
         };
         let doc = st.doc.clone();
+        if self
+            .layer_arrange_drag
+            .is_some_and(|(drag_doc, _)| drag_doc != doc.id.0)
+        {
+            self.layer_arrange_drag = None;
+        }
+        if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+            self.layer_arrange_drag = None;
+            self.arrange_layers = false;
+        }
         let selected = st.selected_layers().to_vec();
         let active = st.active_layer;
         let target = canvas::paint_target(app);
@@ -136,6 +179,7 @@ impl TabletUi {
         }
         // Reserve footer space before sizing the scroll area. The stack owns its scroll.
         let stack_height = (ui.available_height() - 50.).max(50.);
+        let mut drop_target = None;
         egui::ScrollArea::vertical()
             .scroll_source(egui::scroll_area::ScrollSource::ALL)
             .id_salt("ipad-layer-stack")
@@ -146,12 +190,48 @@ impl TabletUi {
                 ui.spacing_mut().item_spacing.y = 2.;
                 for (depth, layer) in photocraft_ui_egui::layer_tree_ui::display_rows(&doc, false) {
                     let top = ui.cursor().top();
-                    self.layer_row(app, ui, &doc, layer, depth, &selected, active);
+                    if let Some(drop) =
+                        self.layer_row(app, ui, &doc, layer, depth, &selected, active)
+                    {
+                        drop_target = Some(drop);
+                    }
                     if reveal == Some(layer.id) {
                         layer_reveal::scroll_to_row(ui, top);
                     }
                 }
             });
+        let touch_cancelled = ui.input(|i| {
+            i.raw.events.iter().any(|event| {
+                matches!(
+                    event,
+                    egui::Event::Touch {
+                        phase: egui::TouchPhase::Cancel,
+                        ..
+                    }
+                )
+            })
+        });
+        if touch_cancelled {
+            self.layer_arrange_drag = None;
+        } else if ui.input(|i| i.pointer.any_released()) {
+            if let (Some((drag_doc, dragged)), Some((target, position))) =
+                (self.layer_arrange_drag, drop_target)
+                && drag_doc == doc.id.0
+                && dragged != target.0
+            {
+                let preserve_target = active == Some(LayerId(dragged));
+                self.invoke(
+                    app,
+                    ui.ctx(),
+                    "layer.moveTo",
+                    json!({"layer":dragged,"target":target,"position":position}),
+                );
+                if self.message.is_empty() && !preserve_target {
+                    self.target_layer(app, ui.ctx(), LayerId(dragged), LayerTarget::Image);
+                }
+            }
+            self.layer_arrange_drag = None;
+        }
         ui.horizontal(|ui| {
             for (icon, label, cmd) in [
                 ("plus", "New layer", "layer.new.layer"),
@@ -235,10 +315,12 @@ impl TabletUi {
         depth: usize,
         selected: &[LayerId],
         active: Option<LayerId>,
-    ) {
+    ) -> Option<(LayerId, &'static str)> {
         let t = Tokens::get(ui.ctx());
+        let mut drop_target = None;
+        let group = matches!(layer.content, LayerContent::Group(_));
         ui.push_id(layer.id.0, |ui| {
-            Frame::NONE
+            let row = Frame::NONE
                 .fill(if selected.contains(&layer.id) {
                     t.row_selected
                 } else {
@@ -249,16 +331,43 @@ impl TabletUi {
                     ui.set_min_height(50.);
                     ui.spacing_mut().item_spacing.x = 2.;
                     ui.spacing_mut().item_spacing.y = 0.;
-                    let indent = (depth as f32 * 10.).min(20.);
+                    let indent = if self.arrange_layers {
+                        (depth as f32 * 4.).min(8.)
+                    } else {
+                        (depth as f32 * 10.).min(20.)
+                    };
                     let targets = 1
                         + usize::from(layer.mask.is_some())
                         + usize::from(layer.vector_mask.is_some());
-                    let group = matches!(layer.content, LayerContent::Group(_));
                     // Keep the name readable before adding more fixed-width targets.
                     // Width, not selection or name length, determines the row geometry.
-                    let fixed = 48. + indent + 46. * (targets + usize::from(group)) as f32;
+                    let grip_width = if self.arrange_layers { 44. } else { 0. };
+                    let fixed =
+                        48. + grip_width + indent + 46. * (targets + usize::from(group)) as f32;
                     let stacked = ui.available_width() - fixed < 88.;
                     ui.horizontal(|ui| {
+                        if self.arrange_layers {
+                            let (grip_rect, _) =
+                                ui.allocate_exact_size(vec2(44., 48.), egui::Sense::hover());
+                            let grip = ui.interact(
+                                grip_rect,
+                                egui::Id::new(("ipad-layer-arrange-grip", doc.id.0, layer.id.0)),
+                                egui::Sense::drag(),
+                            );
+                            icons::paint(ui, grip_rect.shrink(11.), "move", 22., t.text);
+                            grip.widget_info(|| {
+                                egui::WidgetInfo::labeled(
+                                    egui::WidgetType::Button,
+                                    true,
+                                    format!("Reorder: {}", layer.name),
+                                )
+                            });
+                            let started = grip.drag_started();
+                            let _ = grip.on_hover_text(format!("Reorder: {}", layer.name));
+                            if started {
+                                self.layer_arrange_drag = Some((doc.id.0, layer.id.0));
+                            }
+                        }
                         if navigation::icon_button(
                             ui,
                             if layer.visible { "eye" } else { "eye-off" },
@@ -374,7 +483,43 @@ impl TabletUi {
                         });
                     }
                 });
+            let rect = row.response.rect;
+            if self.arrange_layers
+                && let Some((drag_doc, dragged)) = self.layer_arrange_drag
+                && drag_doc == doc.id.0
+                && dragged != layer.id.0
+                && let Some(pointer) = ui.input(|i| i.pointer.interact_pos())
+                && rect.intersect(ui.clip_rect()).contains(pointer)
+            {
+                let fraction = (pointer.y - rect.top()) / rect.height().max(1.);
+                let position = if group && (0.3..0.7).contains(&fraction) {
+                    "into"
+                } else if fraction < 0.5 {
+                    "above"
+                } else {
+                    "below"
+                };
+                let painter = ui.painter();
+                match position {
+                    "into" => painter.rect_stroke(
+                        rect.shrink(1.),
+                        3.,
+                        egui::Stroke::new(2., t.accent),
+                        egui::StrokeKind::Inside,
+                    ),
+                    "above" => painter.line_segment(
+                        [rect.left_top(), rect.right_top()],
+                        egui::Stroke::new(2., t.accent),
+                    ),
+                    _ => painter.line_segment(
+                        [rect.left_bottom(), rect.right_bottom()],
+                        egui::Stroke::new(2., t.accent),
+                    ),
+                };
+                drop_target = Some((layer.id, position));
+            }
         });
+        drop_target
     }
 
     fn layer_thumbnails(
@@ -714,15 +859,353 @@ mod tests {
         app
     }
 
+    fn arrange_harness(app: PhotocraftApp) -> Harness<'static, (PhotocraftApp, TabletUi)> {
+        let mut h = Harness::builder()
+            .with_size(vec2(1194., 834.))
+            .build_ui_state(
+                |ui, (app, w): &mut (PhotocraftApp, TabletUi)| w.show(app, ui),
+                (app, TabletUi::default()),
+            );
+        h.run_steps(3);
+        h.get_by_label("Arrange layers").click();
+        h.run_steps(3);
+        h
+    }
+
+    fn drag_to(h: &mut Harness<'static, (PhotocraftApp, TabletUi)>, source: &str, target: &str) {
+        let from = h
+            .get_by_label(&format!("Reorder: {source}"))
+            .rect()
+            .center();
+        let to = h.get_by_label(&format!("Select layer: {target}")).rect();
+        h.hover_at(from);
+        h.drag_at(from);
+        h.run_steps(1);
+        let drop = to.center();
+        h.hover_at(drop);
+        h.run_steps(1);
+        h.drop_at(drop);
+        h.run_steps(4);
+    }
+
+    #[test]
+    fn arrange_into_group_uses_one_move_command_and_undo_restores_hierarchy() {
+        let mut app = fixture(false, 1);
+        let session = &mut app.session;
+        let background = session.active().unwrap().active_layer.unwrap();
+        app.run("layer.setProps", json!({"name":"A"})).unwrap();
+        let a = app.session.active().unwrap().active_layer.unwrap();
+        app.run("layer.new.layer", json!({"name":"B"})).unwrap();
+        let b = app.session.active().unwrap().active_layer.unwrap();
+        app.run("layer.new.group", json!({"name":"Group"})).unwrap();
+        let group = app.session.active().unwrap().active_layer.unwrap();
+        app.run("layer.select", json!({"layer":b.0,"mode":"replace"}))
+            .unwrap();
+        let selected = app.session.active().unwrap().selected_layers();
+        assert_eq!(selected, vec![b]);
+        let before_steps = app.session.active().unwrap().history.past_len();
+        let mut h = arrange_harness(app);
+
+        drag_to(&mut h, "B", "Group");
+
+        let st = h.state().0.session.active().unwrap();
+        assert!(st.doc.layers.iter().all(|layer| layer.id != b));
+        assert_eq!(st.doc.layer(group).unwrap().children().unwrap()[0].id, b);
+        assert_eq!(st.active_layer, Some(b));
+        assert_eq!(st.selected_layers(), vec![b]);
+        assert_eq!(st.doc.layer(a).unwrap().name, "A");
+        assert_eq!(st.doc.layers[0].id, background);
+        assert_eq!(st.history.past_len(), before_steps + 1);
+
+        h.state_mut().0.run("edit.undo", json!({})).unwrap();
+        let st = h.state().0.session.active().unwrap();
+        assert!(st.doc.layer(b).is_some());
+        assert!(st.doc.layer(group).unwrap().children().unwrap().is_empty());
+    }
+
+    #[test]
+    fn arrange_rejects_multiselection_without_moving_or_changing_selection() {
+        let mut app = fixture(false, 0);
+        app.run("layer.setProps", json!({"name":"A"})).unwrap();
+        let a = app.session.active().unwrap().active_layer.unwrap();
+        app.run("layer.new.layer", json!({"name":"B"})).unwrap();
+        let b = app.session.active().unwrap().active_layer.unwrap();
+        app.run("layer.select", json!({"layer":a.0,"mode":"replace"}))
+            .unwrap();
+        app.run("layer.select", json!({"layer":b.0,"mode":"add"}))
+            .unwrap();
+        let before = app.session.active().unwrap().doc.clone();
+        let selected = app.session.active().unwrap().selected_layers();
+        let mut h = Harness::builder()
+            .with_size(vec2(1194., 834.))
+            .build_ui_state(
+                |ui, (app, w): &mut (PhotocraftApp, TabletUi)| w.show(app, ui),
+                (app, TabletUi::default()),
+            );
+        h.run_steps(3);
+        h.get_by_label("Arrange layers · select one layer").click();
+        h.run_steps(3);
+        assert!(!h.state().1.arrange_layers);
+        assert_eq!(h.state().0.session.active().unwrap().doc, before);
+        assert_eq!(
+            h.state().0.session.active().unwrap().selected_layers(),
+            selected
+        );
+        assert!(h.query_by_label("Reorder: A").is_none());
+    }
+
+    #[test]
+    fn arrange_drop_on_descendant_reports_engine_error_without_mutating_document() {
+        let mut app = fixture(false, 0);
+        app.run("layer.new.group", json!({"name":"Group"})).unwrap();
+        let group = app.session.active().unwrap().active_layer.unwrap();
+        app.run("layer.new.layer", json!({"name":"Child"})).unwrap();
+        let child = app.session.active().unwrap().active_layer.unwrap();
+        app.run(
+            "layer.moveTo",
+            json!({"layer":child.0,"target":group.0,"position":"into"}),
+        )
+        .unwrap();
+        app.run(
+            "layer.setExpanded",
+            json!({"layer":group.0,"expanded":true}),
+        )
+        .unwrap();
+        app.run("layer.select", json!({"layer":group.0,"mode":"replace"}))
+            .unwrap();
+        let before = app.session.active().unwrap().doc.clone();
+        let steps = app.session.active().unwrap().history.past_len();
+        let mut h = arrange_harness(app);
+
+        drag_to(&mut h, "Group", "Group");
+        assert!(h.state().1.message.is_empty());
+        assert_eq!(h.state().0.session.active().unwrap().doc, before);
+        assert_eq!(
+            h.state().0.session.active().unwrap().history.past_len(),
+            steps
+        );
+
+        drag_to(&mut h, "Group", "Child");
+
+        assert!(!h.state().1.message.is_empty());
+        let st = h.state().0.session.active().unwrap();
+        assert_eq!(st.doc, before);
+        assert_eq!(st.history.past_len(), steps);
+        assert_eq!(st.selected_layers(), vec![group]);
+    }
+
+    #[test]
+    fn arrange_cancel_outside_rows_and_escape_leave_document_untouched() {
+        let mut app = fixture(false, 0);
+        app.run("layer.new.layer", json!({"name":"B"})).unwrap();
+        let before = app.session.active().unwrap().doc.clone();
+        let selected = app.session.active().unwrap().selected_layers();
+        let steps = app.session.active().unwrap().history.past_len();
+        let mut h = arrange_harness(app);
+        let grip = h.get_by_label("Reorder: B").rect().center();
+        h.hover_at(grip);
+        h.drag_at(grip);
+        h.run_steps(1);
+        let outside = egui::pos2(980., 420.);
+        h.hover_at(outside);
+        h.run_steps(1);
+        h.drop_at(outside);
+        h.run_steps(3);
+        let st = h.state().0.session.active().unwrap();
+        assert_eq!(st.doc, before);
+        assert_eq!(st.history.past_len(), steps);
+        assert_eq!(st.selected_layers(), selected);
+
+        let grip = h.get_by_label("Reorder: B").rect().center();
+        h.hover_at(grip);
+        h.drag_at(grip);
+        h.run_steps(1);
+        h.key_press(egui::Key::Escape);
+        h.run_steps(3);
+        assert!(!h.state().1.arrange_layers);
+        assert!(h.state().1.layer_arrange_drag.is_none());
+        let st = h.state().0.session.active().unwrap();
+        assert_eq!(st.doc, before);
+        assert_eq!(st.history.past_len(), steps);
+        assert_eq!(st.selected_layers(), selected);
+    }
+
+    #[test]
+    fn arrange_touch_cancel_wins_over_pointer_release_over_a_valid_row() {
+        let mut app = fixture(false, 0);
+        app.run("layer.new.layer", json!({"name":"B"})).unwrap();
+        let before = app.session.active().unwrap().doc.clone();
+        let selected = app.session.active().unwrap().selected_layers();
+        let steps = app.session.active().unwrap().history.past_len();
+        let mut h = arrange_harness(app);
+        let grip = h.get_by_label("Reorder: B").rect().center();
+        h.hover_at(grip);
+        h.drag_at(grip);
+        h.run_steps(1);
+        let target = h
+            .get_by_label("Select layer: Foreground restoration with a very long descriptive name")
+            .rect()
+            .center();
+        h.event(egui::Event::Touch {
+            device_id: egui::TouchDeviceId(2),
+            id: egui::TouchId(18),
+            phase: egui::TouchPhase::Cancel,
+            pos: target,
+            force: None,
+        });
+        h.event(egui::Event::PointerButton {
+            pos: target,
+            button: egui::PointerButton::Primary,
+            pressed: false,
+            modifiers: egui::Modifiers::NONE,
+        });
+        h.event(egui::Event::PointerGone);
+        h.run_steps(3);
+        let st = h.state().0.session.active().unwrap();
+        assert_eq!(st.doc, before);
+        assert_eq!(st.history.past_len(), steps);
+        assert_eq!(st.selected_layers(), selected);
+        assert!(h.state().1.layer_arrange_drag.is_none());
+    }
+
+    #[test]
+    fn arrange_release_over_footer_cannot_drop_on_a_clipped_off_row() {
+        let mut app = fixture(false, 0);
+        for i in 0..24 {
+            app.run(
+                "layer.new.layer",
+                json!({"name":format!("Scroll layer {i}")}),
+            )
+            .unwrap();
+        }
+        let before = app.session.active().unwrap().doc.clone();
+        let selected = app.session.active().unwrap().selected_layers();
+        let steps = app.session.active().unwrap().history.past_len();
+        let mut h = arrange_harness(app);
+        let footer = h.get_by_label("New layer").rect();
+        let (hidden, drop) = (0..24)
+            .map(|i| h.get_by_label(&format!("Reorder: Scroll layer {i}")).rect())
+            .find_map(|row| {
+                row.intersects(footer)
+                    .then_some((row, row.intersect(footer).center()))
+            })
+            .expect("a clipped row extends behind the footer");
+        assert!(hidden.contains(drop) && footer.contains(drop));
+        let grip = h.get_by_label("Reorder: Scroll layer 23").rect().center();
+        h.hover_at(grip);
+        h.drag_at(grip);
+        h.run_steps(1);
+        h.hover_at(drop);
+        h.run_steps(1);
+        h.drop_at(drop);
+        h.run_steps(3);
+        let st = h.state().0.session.active().unwrap();
+        assert_eq!(st.doc, before);
+        assert_eq!(st.history.past_len(), steps);
+        assert_eq!(st.selected_layers(), selected);
+        assert!(h.state().1.message.is_empty());
+    }
+
+    #[test]
+    fn arrange_is_disabled_in_quick_mask_without_finishing_or_adding_history() {
+        let mut app = fixture(false, 0);
+        app.run("layer.new.layer", json!({"name":"B"})).unwrap();
+        app.run("select.editInQuickMaskMode", json!({"on":true}))
+            .unwrap();
+        let before = app.session.active().unwrap().doc.clone();
+        let selected = app.session.active().unwrap().selected_layers();
+        let steps = app.session.active().unwrap().history.past_len();
+        let mut h = Harness::builder()
+            .with_size(vec2(1194., 834.))
+            .build_ui_state(
+                |ui, (app, w): &mut (PhotocraftApp, TabletUi)| w.show(app, ui),
+                (app, TabletUi::default()),
+            );
+        h.run_steps(3);
+        h.get_by_label("Arrange layers · exit Quick Mask first")
+            .click();
+        h.run_steps(3);
+        let st = h.state().0.session.active().unwrap();
+        assert!(!h.state().1.arrange_layers);
+        assert_eq!(st.doc, before);
+        assert_eq!(st.history.past_len(), steps);
+        assert_eq!(st.selected_layers(), selected);
+        assert!(st.doc.quick_mask.is_some());
+        assert!(h.query_by_label("Reorder: B").is_none());
+    }
+
+    #[test]
+    fn arrange_drag_state_clears_when_layers_are_hidden_or_mask_controls_take_over() {
+        let app = fixture(false, 1);
+        let doc = app.session.active().unwrap().doc.id.0;
+        let layer = app.session.active().unwrap().active_layer.unwrap().0;
+        let mut h = arrange_harness(app);
+
+        h.state_mut().1.layer_arrange_drag = Some((doc, layer));
+        h.state_mut().1.inspector_open = false;
+        h.run_steps(1);
+        assert!(h.state().1.layer_arrange_drag.is_none());
+
+        h.state_mut().1.inspector_open = true;
+        h.state_mut().1.layer_arrange_drag = Some((doc, layer));
+        h.state_mut().1.mask_controls = Some(LayerTarget::Mask);
+        h.run_steps(1);
+        assert!(h.state().1.layer_arrange_drag.is_none());
+    }
+
+    #[test]
+    fn arranging_an_unselected_row_selects_its_new_active_layer() {
+        let mut app = fixture(false, 0);
+        app.run("layer.setProps", json!({"name":"A"})).unwrap();
+        let a = app.session.active().unwrap().active_layer.unwrap();
+        app.run("layer.new.layer", json!({"name":"B"})).unwrap();
+        let b = app.session.active().unwrap().active_layer.unwrap();
+        app.run("layer.new.group", json!({"name":"Group"})).unwrap();
+        app.run("layer.select", json!({"layer":a.0,"mode":"replace"}))
+            .unwrap();
+        let mut h = arrange_harness(app);
+
+        drag_to(&mut h, "B", "Group");
+
+        let st = h.state().0.session.active().unwrap();
+        assert_eq!(st.active_layer, Some(b));
+        assert_eq!(st.selected_layers(), vec![b]);
+        assert!(!h.state().0.ui.mask_target);
+        assert!(!h.state().0.ui.vector_mask_target);
+    }
+
+    #[test]
+    fn arranging_the_active_masked_layer_preserves_its_mask_target() {
+        let mut app = fixture(false, 0);
+        app.run("layer.new.layer", json!({"name":"Masked"}))
+            .unwrap();
+        let layer = app.session.active().unwrap().active_layer.unwrap();
+        app.run("layer.layerMask.revealAll", json!({})).unwrap();
+        app.run("layer.new.group", json!({"name":"Group"})).unwrap();
+        app.run("layer.select", json!({"layer":layer.0,"mode":"replace"}))
+            .unwrap();
+        app.ui.mask_target = true;
+        let mut h = arrange_harness(app);
+
+        drag_to(&mut h, "Masked", "Group");
+
+        let st = h.state().0.session.active().unwrap();
+        assert_eq!(st.active_layer, Some(layer));
+        assert_eq!(st.selected_layers(), vec![layer]);
+        assert!(st.doc.layer(layer).unwrap().mask.is_some());
+        assert!(h.state().0.ui.mask_target);
+        assert!(!h.state().0.ui.vector_mask_target);
+    }
+
     #[test]
     fn crowded_rows_keep_readable_names_and_disjoint_full_size_targets() {
-        for width in [260., 280., 460., 740.] {
-            for group in [false, true] {
-                for masks in 0..=2 {
-                    for depth in [0, 2, 8] {
-                        let app = fixture(group, masks);
-                        let mut h =
-                            Harness::builder()
+        for arrange in [false, true] {
+            for width in [260., 280., 460., 740.] {
+                for group in [false, true] {
+                    for masks in 0..=2 {
+                        for depth in [0, 2, 8] {
+                            let app = fixture(group, masks);
+                            let mut h = Harness::builder()
                                 .with_size(vec2(width + 16., 180.))
                                 .build_ui_state(
                                     move |ui,
@@ -731,6 +1214,7 @@ mod tests {
                                         TabletUi,
                                         egui::Rect,
                                     )| {
+                                        w.arrange_layers = arrange;
                                         let st = app.session.active().unwrap();
                                         let doc = st.doc.clone();
                                         let active = st.active_layer;
@@ -752,66 +1236,71 @@ mod tests {
                                     },
                                     (app, TabletUi::default(), egui::Rect::NOTHING),
                                 );
-                        h.run_steps(3);
-                        let mut labels = vec![
-                            format!("Select layer: {NAME}"),
-                            format!("Visibility: {NAME}"),
-                            format!("Image: {NAME}"),
-                        ];
-                        if group {
-                            labels.push(format!("Expand group: {NAME}"));
-                        }
-                        if masks >= 1 {
-                            labels.push(format!("Mask: {NAME}"));
-                        }
-                        if masks >= 2 {
-                            labels.push(format!("Vector mask: {NAME}"));
-                        }
-                        let rects: Vec<_> = labels
-                            .iter()
-                            .map(|label| h.get_by_label(label).rect())
-                            .collect();
-                        let context =
-                            format!("width={width} group={group} masks={masks} depth={depth}");
-                        assert!(rects[0].width() >= 88., "name: {context} {:?}", rects[0]);
-                        for (i, rect) in rects.iter().enumerate() {
-                            assert!(
-                                rect.width() >= 44. && rect.height() >= 44.,
-                                "target: {context} {rect:?}"
-                            );
-                            assert!(
-                                rect.left() >= h.state().2.left()
-                                    && rect.right() <= h.state().2.right(),
-                                "bounds: {context} {rect:?}"
-                            );
-                            for other in &rects[..i] {
-                                let overlap = rect.intersect(*other);
-                                assert!(
-                                    overlap.width() <= 0. || overlap.height() <= 0.,
-                                    "overlap: {context} {rect:?} {other:?}"
-                                );
-                            }
-                        }
-                        let stacked = rects[2].top() > rects[0].bottom() - 0.5;
-                        if width == 260. && group && masks == 2 {
-                            assert!(stacked);
-                        }
-                        if width >= 460. {
-                            assert!(!stacked, "wide rows stay compact");
-                        }
-                        if width == 260. && group && masks == 2 && depth == 8 {
-                            let ids: Vec<_> = labels
-                                .iter()
-                                .map(|label| h.get_by_label(label).accesskit_node().id())
-                                .collect();
-                            h.set_size(vec2(756., 180.));
                             h.run_steps(3);
-                            for (label, id) in labels.iter().zip(ids) {
-                                assert_eq!(
-                                    h.get_by_label(label).accesskit_node().id(),
-                                    id,
-                                    "resize changed {label} identity"
+                            let mut labels = vec![
+                                format!("Select layer: {NAME}"),
+                                format!("Visibility: {NAME}"),
+                                format!("Image: {NAME}"),
+                            ];
+                            if group {
+                                labels.push(format!("Expand group: {NAME}"));
+                            }
+                            if masks >= 1 {
+                                labels.push(format!("Mask: {NAME}"));
+                            }
+                            if masks >= 2 {
+                                labels.push(format!("Vector mask: {NAME}"));
+                            }
+                            if arrange {
+                                labels.push(format!("Reorder: {NAME}"));
+                            }
+                            let rects: Vec<_> = labels
+                                .iter()
+                                .map(|label| h.get_by_label(label).rect())
+                                .collect();
+                            let context = format!(
+                                "arrange={arrange} width={width} group={group} masks={masks} depth={depth}"
+                            );
+                            assert!(rects[0].width() >= 88., "name: {context} {:?}", rects[0]);
+                            for (i, rect) in rects.iter().enumerate() {
+                                assert!(
+                                    rect.width() >= 44. && rect.height() >= 44.,
+                                    "target: {context} {rect:?}"
                                 );
+                                assert!(
+                                    rect.left() >= h.state().2.left()
+                                        && rect.right() <= h.state().2.right(),
+                                    "bounds: {context} {rect:?}"
+                                );
+                                for other in &rects[..i] {
+                                    let overlap = rect.intersect(*other);
+                                    assert!(
+                                        overlap.width() <= 0. || overlap.height() <= 0.,
+                                        "overlap: {context} {rect:?} {other:?}"
+                                    );
+                                }
+                            }
+                            let stacked = rects[2].top() > rects[0].bottom() - 0.5;
+                            if width == 260. && group && masks == 2 {
+                                assert!(stacked);
+                            }
+                            if width >= 460. {
+                                assert!(!stacked, "wide rows stay compact");
+                            }
+                            if width == 260. && group && masks == 2 && depth == 8 {
+                                let ids: Vec<_> = labels
+                                    .iter()
+                                    .map(|label| h.get_by_label(label).accesskit_node().id())
+                                    .collect();
+                                h.set_size(vec2(756., 180.));
+                                h.run_steps(3);
+                                for (label, id) in labels.iter().zip(ids) {
+                                    assert_eq!(
+                                        h.get_by_label(label).accesskit_node().id(),
+                                        id,
+                                        "resize changed {label} identity"
+                                    );
+                                }
                             }
                         }
                     }
