@@ -18,11 +18,24 @@ impl TabletUi {
         id: LayerId,
         target: LayerTarget,
     ) {
-        // Mask-only view has priority over UI flags. Exit it before changing the target.
+        // Explicit layer targeting finishes Quick Mask's selection edit first.
+        // Otherwise its higher-priority paint target silently captures the next stroke.
+        if app
+            .session
+            .active()
+            .is_some_and(|st| st.doc.quick_mask.is_some())
+        {
+            self.invoke(app, ctx, "select.editInQuickMaskMode", json!({"on":false}));
+            if !self.message.is_empty() {
+                return;
+            }
+        }
+        // Leave mask view when changing targets; keep it while editing the same mask.
         if let Some(view) = app
             .session
             .active()
             .and_then(photocraft_engine::mask_view_cmds::current)
+            .filter(|view| target != LayerTarget::Mask || view.layer != id)
         {
             self.invoke(
                 app,
@@ -30,6 +43,9 @@ impl TabletUi {
                 "view.layerMask",
                 json!({"layer":view.layer.0,"mode":"off"}),
             );
+            if !self.message.is_empty() {
+                return;
+            }
         }
         self.invoke(
             app,
@@ -41,11 +57,36 @@ impl TabletUi {
             return;
         }
         self.invoke(app, ctx, "channel.target", json!({"channel":"composite"}));
+        if !self.message.is_empty() {
+            return;
+        }
         app.ui.mask_target = target == LayerTarget::Mask;
         app.ui.vector_mask_target = target == LayerTarget::Vector;
     }
 
+    fn tap_layer_target(
+        &mut self,
+        app: &mut PhotocraftApp,
+        ctx: &egui::Context,
+        id: LayerId,
+        target: LayerTarget,
+    ) {
+        if self.multi_select {
+            self.invoke(
+                app,
+                ctx,
+                "layer.select",
+                json!({"layer":id.0,"mode":"toggle"}),
+            );
+        } else {
+            self.target_layer(app, ctx, id, target);
+        }
+    }
+
     pub(super) fn layers(&mut self, app: &mut PhotocraftApp, ui: &mut Ui) {
+        if self.mask_controls.is_some() && self.mask_controls_panel(app, ui) {
+            return;
+        }
         let reveal = layer_reveal::track(app, ui.ctx());
         ui.horizontal(|ui| {
             ui.strong("Layers");
@@ -80,7 +121,7 @@ impl TabletUi {
         } else if target.get("channel").is_some() {
             "Alpha channel"
         } else if app.ui.vector_mask_target {
-            "Vector mask"
+            "Vector path"
         } else if target == json!("mask") {
             "Layer mask"
         } else {
@@ -120,26 +161,57 @@ impl TabletUi {
                     self.invoke(app, ui.ctx(), cmd, json!({}));
                 }
             }
-            let has_mask = active
-                .and_then(|id| doc.layer(id))
-                .is_some_and(|l| l.mask.is_some());
+            let active_layer = active.and_then(|id| doc.layer(id));
+            let has_mask =
+                active_layer.is_some_and(|l| l.mask.is_some() || l.vector_mask.is_some());
             if ui
-                .add_enabled_ui(!has_mask && active.is_some(), |ui| {
-                    navigation::icon_button(ui, "scan", "Add layer mask", false, 44.)
+                .add_enabled_ui(active.is_some(), |ui| {
+                    navigation::icon_button(
+                        ui,
+                        "scan",
+                        if has_mask {
+                            "Mask controls"
+                        } else {
+                            "Add layer mask"
+                        },
+                        false,
+                        44.,
+                    )
                 })
                 .inner
                 .clicked()
             {
-                self.invoke(
-                    app,
-                    ui.ctx(),
-                    layer_menu_ui::add_mask_command(doc.selection.is_some(), false),
-                    json!({}),
-                );
-                if self.message.is_empty()
-                    && let Some(id) = active
-                {
-                    self.target_layer(app, ui.ctx(), id, LayerTarget::Mask);
+                if has_mask {
+                    let target = if active_layer.is_some_and(|l| l.vector_mask.is_some())
+                        && (app.ui.vector_mask_target
+                            || active_layer.is_some_and(|l| l.mask.is_none()))
+                    {
+                        LayerTarget::Vector
+                    } else {
+                        LayerTarget::Mask
+                    };
+                    if let Some(id) = active {
+                        self.open_mask_controls(app, ui.ctx(), id, target);
+                    }
+                } else if let Some(id) = active {
+                    self.target_layer(app, ui.ctx(), id, LayerTarget::Image);
+                    if self.message.is_empty() {
+                        // Finishing Quick Mask just restored its edited selection; the
+                        // document snapshot from the start of this frame is now stale.
+                        let selected = app
+                            .session
+                            .active()
+                            .is_some_and(|st| st.doc.selection.is_some());
+                        self.invoke(
+                            app,
+                            ui.ctx(),
+                            layer_menu_ui::add_mask_command(selected, false),
+                            json!({"layer":id.0}),
+                        );
+                        if self.message.is_empty() {
+                            self.target_layer(app, ui.ctx(), id, LayerTarget::Mask);
+                        }
+                    }
                 }
             }
             if navigation::icon_button(ui, "ellipsis", "Layer properties and actions", false, 44.)
@@ -222,13 +294,13 @@ impl TabletUi {
                         let image =
                             thumbnail(app, ui, doc, layer, LayerTarget::Image, image_target);
                         if image.clicked() {
-                            self.target_layer(app, ui.ctx(), layer.id, LayerTarget::Image);
+                            self.tap_layer_target(app, ui.ctx(), layer.id, LayerTarget::Image);
                         }
                         if layer.mask.is_some()
                             && thumbnail(app, ui, doc, layer, LayerTarget::Mask, mask_target)
                                 .clicked()
                         {
-                            self.target_layer(app, ui.ctx(), layer.id, LayerTarget::Mask);
+                            self.tap_layer_target(app, ui.ctx(), layer.id, LayerTarget::Mask);
                         }
                         if layer.vector_mask.is_some()
                             && thumbnail(
@@ -241,7 +313,7 @@ impl TabletUi {
                             )
                             .clicked()
                         {
-                            self.target_layer(app, ui.ctx(), layer.id, LayerTarget::Vector);
+                            self.tap_layer_target(app, ui.ctx(), layer.id, LayerTarget::Vector);
                         }
                         let suffix = if layer.locks.all {
                             " · locked"
@@ -420,25 +492,19 @@ impl TabletUi {
                 }
             }
         });
-        if layer.mask.is_some() {
+        if layer.mask.is_some() || layer.vector_mask.is_some() {
             ui.separator();
-            ui.strong("Layer mask");
-            ui.horizontal_wrapped(|ui| {
-                for (label, id, params) in [
-                    (
-                        "Show mask",
-                        "view.layerMask",
-                        json!({"layer":layer.id.0,"mode":"toggleGray"}),
-                    ),
-                    ("Enable / disable", "layer.layerMask.enabled", json!({})),
-                    ("Apply mask", "layer.layerMask.apply", json!({})),
-                    ("Delete mask", "layer.layerMask.delete", json!({})),
-                ] {
-                    if button(ui, label, false).clicked() {
-                        self.invoke(app, ui.ctx(), id, params);
-                    }
-                }
-            });
+            if full_button(ui, "Mask controls…", false).clicked() {
+                let target = if app.ui.vector_mask_target && layer.vector_mask.is_some()
+                    || layer.mask.is_none()
+                {
+                    LayerTarget::Vector
+                } else {
+                    LayerTarget::Mask
+                };
+                self.open_mask_controls(app, ui.ctx(), layer.id, target);
+                self.sheet = None;
+            }
         }
         if full_button(ui, "All layer commands…", false).clicked() {
             self.open_sheet(Sheet::Commands);
@@ -530,11 +596,19 @@ fn thumbnail(
         if selected {
             mask_thumbs_ui::paint_brackets(ui.painter(), rect.expand(2.), t.text);
         }
-        if target == LayerTarget::Mask && layer.mask.as_ref().is_some_and(|m| !m.enabled) {
-            ui.painter().line_segment(
+        let disabled = match target {
+            LayerTarget::Mask => layer.mask.as_ref().is_some_and(|m| !m.enabled),
+            LayerTarget::Vector => layer.vector_mask.as_ref().is_some_and(|m| !m.enabled),
+            LayerTarget::Image => false,
+        };
+        if disabled {
+            for points in [
                 [rect.left_top(), rect.right_bottom()],
-                egui::Stroke::new(2., t.text),
-            );
+                [rect.right_top(), rect.left_bottom()],
+            ] {
+                ui.painter()
+                    .line_segment(points, egui::Stroke::new(2., t.danger));
+            }
         }
     }
     response.on_hover_text(format!("{label}: {}", layer.name))

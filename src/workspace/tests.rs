@@ -564,17 +564,47 @@ fn image_and_mask_thumbnails_route_strokes_and_undo_independently() {
     assert_eq!(paint_target(&h.state().0), json!("pixels"));
     h.state_mut()
         .0
+        .run("select.rect", json!({"x":0,"y":0,"width":16,"height":16}))
+        .unwrap();
+    h.state_mut()
+        .0
         .run("select.editInQuickMaskMode", json!({"on":true}))
         .unwrap();
+    h.state_mut()
+        .0
+        .run(
+            "paint.stroke",
+            json!({"points":[[8,8]],"size":4,"hardness":1.,"color":"#000000","target":"quickMask"}),
+        )
+        .unwrap();
+    let quick = h.state().0.session.active().unwrap().doc.quick_mask.clone();
     h.run_steps(3);
     h.get_by_label("Image: Ink").click();
     h.run_steps(3);
     assert_eq!(
         paint_target(&h.state().0),
-        json!("quickMask"),
-        "thumbnail must not silently discard Quick Mask"
+        json!("pixels"),
+        "an explicit image target must receive the next stroke"
     );
-    assert!(h.query_by_label("Target · Quick Mask").is_some());
+    let doc = &h.state().0.session.active().unwrap().doc;
+    assert!(doc.quick_mask.is_none());
+    let selection = doc.selection.as_ref().unwrap();
+    assert!(
+        selection.sample_channel(8, 8, 0) < 0.01,
+        "Quick Mask paint becomes selection data"
+    );
+    assert!(selection.sample_channel(2, 2, 0) > 0.99);
+    assert!(selection.sample_channel(24, 24, 0) < 0.01);
+    h.state_mut().0.run("edit.undo", json!({})).unwrap();
+    assert_eq!(
+        h.state().0.session.active().unwrap().doc.quick_mask,
+        quick,
+        "finishing Quick Mask is undoable"
+    );
+    h.run_steps(3);
+    h.get_by_label("Mask: Ink").click();
+    h.run_steps(3);
+    assert_eq!(paint_target(&h.state().0), json!("mask"));
 }
 
 #[test]

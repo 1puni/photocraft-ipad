@@ -4,6 +4,7 @@ mod colour;
 mod command_tray;
 mod inspectors;
 mod layers;
+mod mask_controls;
 mod navigation;
 mod options;
 mod sheets;
@@ -44,6 +45,8 @@ pub struct TabletUi {
     sheet: Option<Sheet>,
     command_path: Vec<String>,
     multi_select: bool,
+    mask_controls: Option<layers::LayerTarget>,
+    mask_actions_open: bool,
     color_background: bool,
     color_hex: String,
     color_source: Option<[f32; 4]>,
@@ -76,6 +79,8 @@ impl Default for TabletUi {
             sheet: None,
             command_path: Vec::new(),
             multi_select: false,
+            mask_controls: None,
+            mask_actions_open: false,
             color_background: false,
             color_hex: String::new(),
             color_source: None,
