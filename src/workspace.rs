@@ -1,0 +1,316 @@
+//! Touch chrome. Document edits always use the shared command path.
+mod inspectors;
+mod options;
+mod sheets;
+
+use egui::{Button, Frame, Ui, vec2};
+use photocraft_ui_egui::{PhotocraftApp, menus, state::Tool, theme::Tokens};
+use serde_json::{Value, json};
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Inspector {
+    Tool,
+    #[default]
+    Layers,
+    Brush,
+    Color,
+    History,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Sheet {
+    Tools,
+    Commands,
+    Files,
+}
+
+pub struct TabletUi {
+    pub message: String,
+    inspector: Inspector,
+    inspector_open: bool,
+    sheet: Option<Sheet>,
+    search: String,
+    category: String,
+    multi_select: bool,
+    color_background: bool,
+    color_hex: String,
+    color_hue: f32,
+    color_source: Option<[f32; 4]>,
+    pub shift: bool,
+    pub alt: bool,
+    hardware_modifiers: egui::Modifiers,
+}
+impl Default for TabletUi {
+    fn default() -> Self {
+        Self {
+            message: String::new(),
+            inspector: Inspector::Layers,
+            inspector_open: true,
+            sheet: None,
+            search: String::new(),
+            category: String::new(),
+            multi_select: false,
+            color_background: false,
+            color_hex: String::new(),
+            color_hue: 0.0,
+            color_source: None,
+            shift: false,
+            alt: false,
+            hardware_modifiers: egui::Modifiers::NONE,
+        }
+    }
+}
+
+/// Keep a useful canvas in portrait and Split View; inspector moves below it.
+pub fn side_inspector(size: egui::Vec2) -> bool {
+    size.x >= 1000. && size.x > size.y
+}
+
+pub(super) fn button(ui: &mut Ui, label: &str, selected: bool) -> egui::Response {
+    ui.add(
+        Button::new(label)
+            .selected(selected)
+            .min_size(vec2(44., 44.)),
+    )
+}
+pub(super) fn full_button(ui: &mut Ui, label: &str, selected: bool) -> egui::Response {
+    ui.add_sized(
+        [ui.available_width(), 48.],
+        Button::new(label).selected(selected),
+    )
+}
+
+impl TabletUi {
+    fn invoke(&mut self, app: &mut PhotocraftApp, ctx: &egui::Context, id: &str, params: Value) {
+        self.message = match menus::invoke(app, ctx, id, params) {
+            Ok(_) => String::new(),
+            Err(e) => e,
+        };
+    }
+    fn command(&mut self, app: &mut PhotocraftApp, ui: &mut Ui, label: &str, id: &str) {
+        let enabled = menus::is_live(id) && menus::is_enabled(app, id);
+        if ui
+            .add_enabled(enabled, Button::new(label).min_size(vec2(44., 44.)))
+            .clicked()
+        {
+            self.invoke(app, ui.ctx(), id, json!({}));
+        }
+    }
+    fn open_sheet(&mut self, sheet: Sheet) {
+        self.sheet = Some(sheet);
+        self.search.clear();
+        self.category.clear();
+    }
+    pub fn show(&mut self, app: &mut PhotocraftApp, ui: &mut Ui) {
+        let ctx = ui.ctx().clone();
+        let size = ctx.content_rect().size();
+        let t = Tokens::get(&ctx);
+        ui.spacing_mut().interact_size = vec2(44., 44.);
+        ui.spacing_mut().button_padding = vec2(10., 8.);
+        ui.spacing_mut().item_spacing = vec2(6., 6.);
+        egui::Panel::top("ipad-document-bar")
+            .frame(Frame::NONE.fill(t.chrome).inner_margin(8))
+            .show(ui, |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    if button(ui, "Files", false).clicked() {
+                        self.open_sheet(Sheet::Files);
+                    }
+                    self.command(app, ui, "Save", "file.save");
+                    self.command(app, ui, "Undo", "edit.undo");
+                    self.command(app, ui, "Redo", "edit.redo");
+                    if button(ui, "Commands", self.sheet == Some(Sheet::Commands)).clicked() {
+                        self.open_sheet(Sheet::Commands);
+                    }
+                    if button(ui, "Inspector", self.inspector_open).clicked() {
+                        self.inspector_open = !self.inspector_open;
+                    }
+                    self.command(app, ui, "Fit", "view.fitOnScreen");
+                });
+                let title = app
+                    .session
+                    .active()
+                    .map(|s| format!("{}{}", s.doc.name, if s.is_dirty() { " •" } else { "" }))
+                    .unwrap_or_else(|| "PhotoCraft · iPad workspace".into());
+                ui.label(egui::RichText::new(title).strong());
+            });
+        egui::Panel::bottom("ipad-context")
+            .frame(Frame::NONE.fill(t.chrome).inner_margin(8))
+            .show(ui, |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    ui.strong(app.ui.tool.label());
+                    if button(
+                        ui,
+                        "Tool settings",
+                        self.inspector_open && self.inspector == Inspector::Tool,
+                    )
+                    .clicked()
+                    {
+                        self.inspector = Inspector::Tool;
+                        self.inspector_open = true;
+                    }
+                    if app.ui.transform.is_some() {
+                        if button(ui, "Apply transform", false).clicked() {
+                            photocraft_ui_egui::transform_tool::commit(app);
+                        }
+                        if button(ui, "Cancel transform", false).clicked() {
+                            photocraft_ui_egui::transform_tool::cancel(app);
+                        }
+                    } else if app.ui.tool == Tool::Crop {
+                        if button(ui, "Apply crop", false).clicked() {
+                            photocraft_ui_egui::canvas::commit_crop(app);
+                        }
+                        if button(ui, "Cancel crop", false).clicked() {
+                            app.ui.crop_rect = None;
+                        }
+                    } else if app.ui.text_edit.is_some() {
+                        if button(ui, "Apply text", false).clicked() {
+                            photocraft_ui_egui::type_tool::commit(app);
+                        }
+                        if button(ui, "Cancel text", false).clicked() {
+                            photocraft_ui_egui::type_tool::cancel(app);
+                        }
+                    } else if app.ui.tool.is_brushlike() {
+                        let before = app.session.tools.brush.clone();
+                        let mut after = before.clone();
+                        ui.add(
+                            egui::Slider::new(&mut after.size, 0.5..=5000.)
+                                .logarithmic(true)
+                                .text("Size"),
+                        );
+                        ui.add(egui::Slider::new(&mut after.opacity, 0.0..=1.).text("Opacity"));
+                        photocraft_ui_egui::brush_panel::commit_gesture(app, &ctx, &before, &after);
+                    } else if photocraft_ui_egui::tool_feedback::is_selection_tool(app.ui.tool) {
+                        for (i, label) in ["New", "Add", "Subtract", "Intersect"].iter().enumerate()
+                        {
+                            if button(ui, label, app.ui.selection_mode == i as u8).clicked() {
+                                app.ui.selection_mode = i as u8;
+                            }
+                        }
+                        self.command(app, ui, "Deselect", "select.deselect");
+                    }
+                    if button(ui, "Shift", self.shift).clicked() {
+                        self.shift = !self.shift;
+                    }
+                    if button(ui, "Alt", self.alt).clicked() {
+                        self.alt = !self.alt;
+                    }
+                });
+                if !self.message.is_empty() {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label(&self.message);
+                        if button(ui, "Dismiss", false).clicked() {
+                            self.message.clear();
+                        }
+                    });
+                }
+            });
+        if self.inspector_open {
+            if side_inspector(size) {
+                egui::Panel::right("ipad-inspector-side")
+                    .exact_size(304.)
+                    .frame(Frame::NONE.fill(t.dock).inner_margin(10))
+                    .show(ui, |ui| self.inspector(app, ui));
+            } else {
+                egui::Panel::bottom("ipad-inspector-bottom")
+                    .exact_size((size.y * 0.32).clamp(170., 310.))
+                    .frame(Frame::NONE.fill(t.dock).inner_margin(10))
+                    .show(ui, |ui| self.inspector(app, ui));
+            }
+        }
+        egui::Panel::left("ipad-tool-rail")
+            .exact_size(64.)
+            .frame(Frame::NONE.fill(t.chrome).inner_margin(6))
+            .show(ui, |ui| {
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    if button(ui, "Tools", self.sheet == Some(Sheet::Tools)).clicked() {
+                        self.open_sheet(Sheet::Tools);
+                    }
+                    for tool in [
+                        Tool::Move,
+                        Tool::Brush,
+                        Tool::Eraser,
+                        Tool::Lasso,
+                        Tool::Crop,
+                        Tool::Type,
+                        Tool::Hand,
+                    ] {
+                        let icon = photocraft_ui_egui::icons::tool_icon(tool);
+                        if photocraft_ui_egui::icons::button(
+                            ui,
+                            icon,
+                            48.,
+                            app.ui.tool == tool,
+                            tool.label(),
+                        )
+                        .clicked()
+                        {
+                            app.ui.tool = tool;
+                        }
+                    }
+                    if photocraft_ui_egui::icons::button(
+                        ui,
+                        "palette",
+                        48.0,
+                        self.inspector_open && self.inspector == Inspector::Color,
+                        "Colour",
+                    )
+                    .clicked()
+                    {
+                        self.inspector = Inspector::Color;
+                        self.inspector_open = true;
+                    }
+                });
+            });
+        self.sheets(app, &ctx);
+    }
+    fn inspector(&mut self, app: &mut PhotocraftApp, ui: &mut Ui) {
+        ui.spacing_mut().slider_width = 96.0;
+        ui.horizontal_wrapped(|ui| {
+            for (tab, label) in [
+                (Inspector::Tool, "Tool"),
+                (Inspector::Layers, "Layers"),
+                (Inspector::Brush, "Brush"),
+                (Inspector::Color, "Colour"),
+                (Inspector::History, "History"),
+            ] {
+                if button(ui, label, self.inspector == tab).clicked() {
+                    self.inspector = tab;
+                }
+            }
+        });
+        ui.separator();
+        egui::ScrollArea::vertical()
+            .id_salt("ipad-inspector-body")
+            .auto_shrink([false, false])
+            .show(ui, |ui| match self.inspector {
+                Inspector::Tool => self.options(app, ui),
+                Inspector::Layers => self.layers(app, ui),
+                Inspector::Brush => self.brush(app, ui),
+                Inspector::Color => self.color(app, ui),
+                Inspector::History => self.history(app, ui),
+            });
+    }
+    pub fn raw_input(&mut self, raw: &mut egui::RawInput) {
+        let mut initial = self.hardware_modifiers;
+        initial.shift |= self.shift;
+        initial.alt |= self.alt;
+        for event in &mut raw.events {
+            match event {
+                egui::Event::ModifiersChanged(modifiers) => {
+                    self.hardware_modifiers = *modifiers;
+                    modifiers.shift |= self.shift;
+                    modifiers.alt |= self.alt;
+                }
+                egui::Event::PointerButton { modifiers, .. }
+                | egui::Event::Key { modifiers, .. } => {
+                    modifiers.shift |= self.shift;
+                    modifiers.alt |= self.alt;
+                }
+                _ => {}
+            }
+        }
+        raw.events.insert(0, egui::Event::ModifiersChanged(initial));
+    }
+}
+
+#[cfg(test)]
+mod tests;
