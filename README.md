@@ -58,6 +58,9 @@ Switching targets finishes Quick Mask while preserving the selection you edited.
 Layers scroll independently above pinned actions. Nested groups and masked layers
 use compact or two-line rows to keep names readable and targets easy to hit;
 image and mask thumbnails stay distinct as the workspace resizes.
+Switch on **Arrange** for dedicated handles that move one layer or group above,
+below or into another group, with one-step Undo. Ordinary row drags still scroll
+the stack.
 
 <img src="public/images/mask-controls.jpg" alt="Docked pixel-mask controls beside The Great Wave, with Composite, Mask only, Overlay, Enabled, Linked, Load selection and Invert mask actions." width="100%">
 
