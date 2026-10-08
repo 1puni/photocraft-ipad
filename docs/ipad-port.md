@@ -12,7 +12,7 @@ V prefers the familiar editor and precise Pencil targets. Replace the catalogue-
 
 Review each surface as an editing workflow, not as proof that a command can be found in a list. The hierarchy and rail are the first design pass; effects, selections, colours, presets and file workflows still require individual refinement.
 
-Keep command search prominent as a useful power tool. V also requested a bottom dictation control: a short spoken command should select a tool or reach the full command system. Speech and typing must share resolution and action handling; ambiguous targets and missing parameters need explicit choices. Browser-native speech recognition is the first path to verify on iPad Safari. Do not claim speech is implemented or fully on-device until measured.
+Keep command search prominent as a useful power tool. V also requested a bottom dictation control: a short spoken command should select a tool or reach the full command system. Speech and typing share resolution and action handling; ambiguous targets and missing parameters need explicit choices. The browser recognition adapter is implemented; real iPad recognition and permissions still need device acceptance. Do not claim fully on-device processing.
 
 The design agent's proposal is one unrestricted Studio, with Photography and Illustration as optional saved arrangements. They change visible panels, not tools, documents, settings or capability. The distinctive interaction is a single edge dock with collapsed, working and expanded states: layer targets, their properties and deeper brush/colour/adjustment controls remain connected to the canvas. In landscape use a roughly 304-point working dock; in portrait use a bottom dock around 300 points, with explicit expansion and collapse. Keep the context strip to one row of two to four relevant controls.
 
@@ -27,7 +27,7 @@ Voice is a small bottom-edge microphone beside command search, opening a transcr
 | Hosting | Mac serves only public files on LAN, original and preview separated | Re-run scoped-server tests after changes |
 | Workspace | Touch rail, adaptive bottom/right inspector, contextual strip | Portrait, landscape, Split View, safe areas, keyboard checks |
 | Tools | All 49 tools in a grouped, scrollable icon rail | Per-tool options, actual gestures, apply/cancel controls |
-| Commands | Menu hierarchy with optional search and shared command dispatch | Native dictation; responsive dialogs for every family; catalogue access alone is not completion |
+| Commands | Menu hierarchy, bottom typed search and browser speech adapter, shared tool/menu resolution; portrait command tray temporarily replaces inspector | Real iPad dictation and permissions; responsive dialogs for every family; catalogue access alone is not completion |
 | Layers | Independent stack, pinned actions, image/mask targeting, properties sheet, multiselect, visibility, opacity, blend, locks, order, groups, masks, rename, thumbnails; channel/path sheets; adaptive Layer Style dialog | Physical channel/path/effects workflows; adjustment surfaces |
 | Brush | Tip basics, pressure, tilt influence, smoothing, presets; all 13 shared dynamics sections and live stroke preview | Physical dynamics/texture/mixer workflows and complete preset management |
 | Colour | Saturation/value pad, hue, hex, foreground/background, eyedropper | Swatches, precise multi-model values, profile proofing |

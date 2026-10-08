@@ -1,5 +1,6 @@
 //! Touch chrome. Document edits always use the shared command path.
 mod channels_paths;
+mod command_tray;
 mod inspectors;
 mod layers;
 mod navigation;
@@ -31,6 +32,11 @@ pub enum Sheet {
 
 pub struct TabletUi {
     pub message: String,
+    pub dictation: crate::speech::Dictation,
+    command_text: String,
+    command_tray_open: bool,
+    last_selection: Tool,
+    tool_receipt: Option<(Tool, Tool)>,
     inspector: Inspector,
     inspector_open: bool,
     sheet: Option<Sheet>,
@@ -57,6 +63,11 @@ impl Default for TabletUi {
     fn default() -> Self {
         Self {
             message: String::new(),
+            dictation: Default::default(),
+            command_text: String::new(),
+            command_tray_open: false,
+            last_selection: Tool::RectMarquee,
+            tool_receipt: None,
             inspector: Inspector::Layers,
             inspector_open: true,
             sheet: None,
@@ -103,6 +114,29 @@ pub(super) fn full_button(ui: &mut Ui, label: &str, selected: bool) -> egui::Res
 
 impl TabletUi {
     fn invoke(&mut self, app: &mut PhotocraftApp, ctx: &egui::Context, id: &str, params: Value) {
+        // Window commands must reveal this workspace's panels, not invisible desktop docks.
+        let inspector = match id
+            .trim_start_matches("window.")
+            .trim_start_matches("toggle.")
+        {
+            "layers" => Some(Inspector::Layers),
+            "history" => Some(Inspector::History),
+            "color" | "swatches" => Some(Inspector::Color),
+            "brushSettings" | "brushes" => Some(Inspector::Brush),
+            _ => None,
+        };
+        if id.starts_with("window.")
+            && let Some(inspector) = inspector
+        {
+            self.inspector = inspector;
+            self.inspector_open = true;
+            self.message.clear();
+            return;
+        }
+        if matches!(id, "window.properties" | "window.toggle.properties") {
+            self.open_sheet(Sheet::LayerProperties);
+            return;
+        }
         self.message = match menus::invoke(app, ctx, id, params) {
             Ok(_) => String::new(),
             Err(e) => e,
@@ -118,6 +152,8 @@ impl TabletUi {
         }
     }
     fn open_sheet(&mut self, sheet: Sheet) {
+        self.dictation.cancel();
+        self.command_tray_open = false;
         self.sheet = Some(sheet);
         self.search.clear();
         self.command_path.clear();
@@ -178,78 +214,89 @@ impl TabletUi {
                     self.command(app, ui, "Fit", "view.fitOnScreen");
                 });
             });
-        egui::Panel::bottom("ipad-context")
-            .frame(Frame::NONE.fill(t.chrome).inner_margin(8))
-            .show(ui, |ui| {
-                ui.horizontal_wrapped(|ui| {
-                    ui.strong(app.ui.tool.label());
-                    if button(
-                        ui,
-                        "Tool settings",
-                        self.inspector_open && self.inspector == Inspector::Tool,
-                    )
-                    .clicked()
-                    {
-                        self.inspector = Inspector::Tool;
-                        self.inspector_open = true;
-                    }
-                    if app.ui.transform.is_some() {
-                        if button(ui, "Apply transform", false).clicked() {
-                            photocraft_ui_egui::transform_tool::commit(app);
-                        }
-                        if button(ui, "Cancel transform", false).clicked() {
-                            photocraft_ui_egui::transform_tool::cancel(app);
-                        }
-                    } else if app.ui.tool == Tool::Crop {
-                        if button(ui, "Apply crop", false).clicked() {
-                            photocraft_ui_egui::canvas::commit_crop(app);
-                        }
-                        if button(ui, "Cancel crop", false).clicked() {
-                            app.ui.crop_rect = None;
-                        }
-                    } else if app.ui.text_edit.is_some() {
-                        if button(ui, "Apply text", false).clicked() {
-                            photocraft_ui_egui::type_tool::commit(app);
-                        }
-                        if button(ui, "Cancel text", false).clicked() {
-                            photocraft_ui_egui::type_tool::cancel(app);
-                        }
-                    } else if app.ui.tool.is_brushlike() {
-                        let before = app.session.tools.brush.clone();
-                        let mut after = before.clone();
-                        ui.add(
-                            egui::Slider::new(&mut after.size, 0.5..=5000.)
-                                .logarithmic(true)
-                                .text("Size"),
-                        );
-                        ui.add(egui::Slider::new(&mut after.opacity, 0.0..=1.).text("Opacity"));
-                        photocraft_ui_egui::brush_panel::commit_gesture(app, &ctx, &before, &after);
-                    } else if photocraft_ui_egui::tool_feedback::is_selection_tool(app.ui.tool) {
-                        for (i, label) in ["New", "Add", "Subtract", "Intersect"].iter().enumerate()
-                        {
-                            if button(ui, label, app.ui.selection_mode == i as u8).clicked() {
-                                app.ui.selection_mode = i as u8;
-                            }
-                        }
-                        self.command(app, ui, "Deselect", "select.deselect");
-                    }
-                    if button(ui, "Shift", self.shift).clicked() {
-                        self.shift = !self.shift;
-                    }
-                    if button(ui, "Alt", self.alt).clicked() {
-                        self.alt = !self.alt;
-                    }
-                });
-                if !self.message.is_empty() {
+        self.command_bar(app, ui);
+        let action_pending =
+            app.ui.transform.is_some() || app.ui.tool == Tool::Crop || app.ui.text_edit.is_some();
+        if !self.command_tray_open || action_pending {
+            egui::Panel::bottom("ipad-context")
+                .frame(Frame::NONE.fill(t.chrome).inner_margin(8))
+                .show(ui, |ui| {
                     ui.horizontal_wrapped(|ui| {
-                        ui.label(&self.message);
-                        if button(ui, "Dismiss", false).clicked() {
-                            self.message.clear();
+                        ui.strong(app.ui.tool.label());
+                        if !self.command_tray_open
+                            && button(
+                                ui,
+                                "Tool settings",
+                                self.inspector_open && self.inspector == Inspector::Tool,
+                            )
+                            .clicked()
+                        {
+                            self.inspector = Inspector::Tool;
+                            self.inspector_open = true;
+                        }
+                        if app.ui.transform.is_some() {
+                            if button(ui, "Apply transform", false).clicked() {
+                                photocraft_ui_egui::transform_tool::commit(app);
+                            }
+                            if button(ui, "Cancel transform", false).clicked() {
+                                photocraft_ui_egui::transform_tool::cancel(app);
+                            }
+                        } else if app.ui.tool == Tool::Crop {
+                            if button(ui, "Apply crop", false).clicked() {
+                                photocraft_ui_egui::canvas::commit_crop(app);
+                            }
+                            if button(ui, "Cancel crop", false).clicked() {
+                                app.ui.crop_rect = None;
+                            }
+                        } else if app.ui.text_edit.is_some() {
+                            if button(ui, "Apply text", false).clicked() {
+                                photocraft_ui_egui::type_tool::commit(app);
+                            }
+                            if button(ui, "Cancel text", false).clicked() {
+                                photocraft_ui_egui::type_tool::cancel(app);
+                            }
+                        } else if app.ui.tool.is_brushlike() {
+                            let before = app.session.tools.brush.clone();
+                            let mut after = before.clone();
+                            ui.add(
+                                egui::Slider::new(&mut after.size, 0.5..=5000.)
+                                    .logarithmic(true)
+                                    .text("Size"),
+                            );
+                            ui.add(egui::Slider::new(&mut after.opacity, 0.0..=1.).text("Opacity"));
+                            photocraft_ui_egui::brush_panel::commit_gesture(
+                                app, &ctx, &before, &after,
+                            );
+                        } else if photocraft_ui_egui::tool_feedback::is_selection_tool(app.ui.tool)
+                        {
+                            for (i, label) in
+                                ["New", "Add", "Subtract", "Intersect"].iter().enumerate()
+                            {
+                                if button(ui, label, app.ui.selection_mode == i as u8).clicked() {
+                                    app.ui.selection_mode = i as u8;
+                                }
+                            }
+                            self.command(app, ui, "Deselect", "select.deselect");
+                        }
+                        if !self.command_tray_open && button(ui, "Shift", self.shift).clicked() {
+                            self.shift = !self.shift;
+                        }
+                        if !self.command_tray_open && button(ui, "Alt", self.alt).clicked() {
+                            self.alt = !self.alt;
                         }
                     });
-                }
-            });
-        if self.inspector_open {
+                    if !self.message.is_empty() {
+                        ui.horizontal_wrapped(|ui| {
+                            ui.label(&self.message);
+                            if button(ui, "Dismiss", false).clicked() {
+                                self.message.clear();
+                            }
+                        });
+                    }
+                });
+        }
+        self.command_tray(app, ui);
+        if self.inspector_open && (side_inspector(size) || !self.command_tray_open) {
             if side_inspector(size) {
                 egui::Panel::right("ipad-inspector-side")
                     .exact_size(304.)

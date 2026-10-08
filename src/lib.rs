@@ -1,5 +1,7 @@
 //! A touch workspace on PhotoCraft's shared engine, canvas and file services.
+pub mod commands;
 pub mod input;
+pub mod speech;
 pub mod workspace;
 
 #[cfg(target_arch = "wasm32")]
@@ -26,6 +28,7 @@ impl photocraft_web::web::BrowserWorkspace for BrowserWorkspace {
         app: &mut photocraft_ui_egui::PhotocraftApp,
     ) {
         input_web::install(canvas, ctx, self.contacts.clone(), app.stylus.feed.clone());
+        self.workspace.dictation.attach(ctx);
     }
 
     fn raw_input(&mut self, raw: &mut egui::RawInput) {
@@ -58,6 +61,9 @@ impl photocraft_web::web::BrowserWorkspace for BrowserWorkspace {
         ui: &mut egui::Ui,
         _frame: &mut eframe::Frame,
     ) {
+        self.workspace
+            .dictation
+            .place_button(None, 1., egui::Color32::WHITE, egui::Color32::WHITE);
         photocraft_ui_egui::touch_ui::set_enabled(ui.ctx(), true);
         app.ui_with_workspace(ui, |app, ui| self.workspace.show(app, ui));
         self.contacts.borrow_mut().area = if app.ui.dialogs.is_empty() {
