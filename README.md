@@ -13,6 +13,8 @@ The full-port acceptance matrix is in [docs/ipad-port.md](docs/ipad-port.md).
 
 Build with `./build.sh` (Rust, the wasm32-unknown-unknown target, and Trunk required).
 Both checkouts must be siblings. A failed build preserves the previous served preview.
+Build artifacts use this checkout’s own `target/`; do not share it with another
+copy of this crate, which can make Cargo link stale application code.
 
 From this directory:
 

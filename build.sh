@@ -3,7 +3,8 @@
 set -eu
 INTEGRATION_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$INTEGRATION_ROOT"
-export CARGO_TARGET_DIR="$INTEGRATION_ROOT/../photocraft/target"
+# Keep this checkout isolated: another review copy can have the same crate name.
+export CARGO_TARGET_DIR="$INTEGRATION_ROOT/target"
 env -u NO_COLOR trunk build --release
 STAGED=$(mktemp -d "$INTEGRATION_ROOT/.cache/ipad.XXXXXX")
 cp -R "$INTEGRATION_ROOT/.cache/dist/." "$STAGED/"

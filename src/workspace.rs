@@ -1,6 +1,8 @@
 //! Touch chrome. Document edits always use the shared command path.
 mod channels_paths;
 mod inspectors;
+mod layers;
+mod navigation;
 mod options;
 mod sheets;
 
@@ -19,12 +21,12 @@ pub enum Inspector {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Sheet {
-    Tools,
     Commands,
     Files,
     Brush,
     Channels,
     Paths,
+    LayerProperties,
 }
 
 pub struct TabletUi {
@@ -33,7 +35,8 @@ pub struct TabletUi {
     inspector_open: bool,
     sheet: Option<Sheet>,
     search: String,
-    category: String,
+    command_path: Vec<String>,
+    search_open: bool,
     multi_select: bool,
     color_background: bool,
     color_hex: String,
@@ -58,7 +61,8 @@ impl Default for TabletUi {
             inspector_open: true,
             sheet: None,
             search: String::new(),
-            category: String::new(),
+            command_path: Vec::new(),
+            search_open: false,
             multi_select: false,
             color_background: false,
             color_hex: String::new(),
@@ -116,7 +120,8 @@ impl TabletUi {
     fn open_sheet(&mut self, sheet: Sheet) {
         self.sheet = Some(sheet);
         self.search.clear();
-        self.category.clear();
+        self.command_path.clear();
+        self.search_open = false;
     }
     pub fn show(&mut self, app: &mut PhotocraftApp, ui: &mut Ui) {
         let ctx = ui.ctx().clone();
@@ -131,29 +136,47 @@ impl TabletUi {
         ui.spacing_mut().button_padding = vec2(10., 8.);
         ui.spacing_mut().item_spacing = vec2(6., 6.);
         egui::Panel::top("ipad-document-bar")
-            .frame(Frame::NONE.fill(t.chrome).inner_margin(8))
+            .frame(
+                Frame::NONE
+                    .fill(t.chrome)
+                    .inner_margin(egui::Margin::symmetric(8, 2)),
+            )
             .show(ui, |ui| {
-                ui.horizontal_wrapped(|ui| {
+                ui.horizontal(|ui| {
                     if button(ui, "Files", false).clicked() {
                         self.open_sheet(Sheet::Files);
                     }
                     self.command(app, ui, "Save", "file.save");
-                    self.command(app, ui, "Undo", "edit.undo");
-                    self.command(app, ui, "Redo", "edit.redo");
-                    if button(ui, "Commands", self.sheet == Some(Sheet::Commands)).clicked() {
+                    for (label, icon, id) in [
+                        ("Undo", "undo-2", "edit.undo"),
+                        ("Redo", "redo-2", "edit.redo"),
+                    ] {
+                        if ui
+                            .add_enabled_ui(menus::is_enabled(app, id), |ui| {
+                                navigation::icon_button(ui, icon, label, false, 44.)
+                            })
+                            .inner
+                            .clicked()
+                        {
+                            self.invoke(app, ui.ctx(), id, json!({}));
+                        }
+                    }
+                    if button(ui, "Studio", self.sheet == Some(Sheet::Commands)).clicked() {
                         self.open_sheet(Sheet::Commands);
                     }
-                    if button(ui, "Inspector", self.inspector_open).clicked() {
+                    if navigation::icon_button(
+                        ui,
+                        "panel-right",
+                        "Inspector",
+                        self.inspector_open,
+                        44.,
+                    )
+                    .clicked()
+                    {
                         self.inspector_open = !self.inspector_open;
                     }
                     self.command(app, ui, "Fit", "view.fitOnScreen");
                 });
-                let title = app
-                    .session
-                    .active()
-                    .map(|s| format!("{}{}", s.doc.name, if s.is_dirty() { " •" } else { "" }))
-                    .unwrap_or_else(|| "PhotoCraft · iPad workspace".into());
-                ui.label(egui::RichText::new(title).strong());
             });
         egui::Panel::bottom("ipad-context")
             .frame(Frame::NONE.fill(t.chrome).inner_margin(8))
@@ -234,71 +257,39 @@ impl TabletUi {
                     .show(ui, |ui| self.inspector(app, ui));
             } else {
                 egui::Panel::bottom("ipad-inspector-bottom")
-                    .exact_size((size.y * 0.32).clamp(170., 310.))
+                    .exact_size((size.y * 0.32).clamp(276., 340.))
                     .frame(Frame::NONE.fill(t.dock).inner_margin(10))
                     .show(ui, |ui| self.inspector(app, ui));
             }
         }
-        egui::Panel::left("ipad-tool-rail")
-            .exact_size(64.)
-            .frame(Frame::NONE.fill(t.chrome).inner_margin(6))
-            .show(ui, |ui| {
-                egui::ScrollArea::vertical().show(ui, |ui| {
-                    if button(ui, "Tools", self.sheet == Some(Sheet::Tools)).clicked() {
-                        self.open_sheet(Sheet::Tools);
-                    }
-                    for tool in [
-                        Tool::Move,
-                        Tool::Brush,
-                        Tool::Eraser,
-                        Tool::Lasso,
-                        Tool::Crop,
-                        Tool::Type,
-                        Tool::Hand,
-                    ] {
-                        let icon = photocraft_ui_egui::icons::tool_icon(tool);
-                        if photocraft_ui_egui::icons::button(
-                            ui,
-                            icon,
-                            48.,
-                            app.ui.tool == tool,
-                            tool.label(),
-                        )
-                        .clicked()
-                        {
-                            app.ui.tool = tool;
-                        }
-                    }
-                    if photocraft_ui_egui::icons::button(
-                        ui,
-                        "palette",
-                        48.0,
-                        self.inspector_open && self.inspector == Inspector::Color,
-                        "Colour",
-                    )
-                    .clicked()
-                    {
-                        self.inspector = Inspector::Color;
-                        self.inspector_open = true;
-                    }
-                });
-            });
+        self.tool_rail(app, ui);
         self.sheets(app, &ctx);
     }
     fn inspector(&mut self, app: &mut PhotocraftApp, ui: &mut Ui) {
         ui.spacing_mut().slider_width = 96.0;
-        ui.horizontal_wrapped(|ui| {
-            for (tab, label) in [
-                (Inspector::Tool, "Tool"),
-                (Inspector::Layers, "Layers"),
-                (Inspector::Brush, "Brush"),
-                (Inspector::Color, "Colour"),
-                (Inspector::History, "History"),
+        ui.horizontal(|ui| {
+            for (tab, icon, label) in [
+                (Inspector::Tool, "sliders-horizontal", "Tool settings"),
+                (Inspector::Layers, "layers", "Layers"),
+                (Inspector::Brush, "brush", "Brush"),
+                (Inspector::Color, "palette", "Colour"),
+                (Inspector::History, "clock", "History"),
             ] {
-                if button(ui, label, self.inspector == tab).clicked() {
+                if navigation::icon_button(ui, icon, label, self.inspector == tab, 44.).clicked() {
                     self.inspector = tab;
                 }
             }
+        });
+        if self.inspector == Inspector::Layers {
+            self.layers(app, ui);
+            return;
+        }
+        ui.strong(match self.inspector {
+            Inspector::Tool => app.ui.tool.label(),
+            Inspector::Layers => "Layers",
+            Inspector::Brush => "Brush",
+            Inspector::Color => "Colour",
+            Inspector::History => "History",
         });
         ui.separator();
         egui::ScrollArea::vertical()
