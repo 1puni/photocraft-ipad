@@ -1,6 +1,33 @@
 # Local verification — 2026-10-08
 
-## Repository preparation checks
+## Public readiness checks
+
+Fresh GitHub clone of `82be479`, including the Layers stack and navigation work
+from `5eae0db`, with a new, isolated Cargo target directory:
+
+- `setup.sh` fetched public upstream and applied all five patches. The resulting
+  tree matched `7545cfe69924ec4f48fee63aa61ebf3ff82c48ac`.
+- `cargo fmt --check`, `cargo test --locked` (19 passed), and
+  `cargo clippy --locked --all-targets --no-deps -- -D warnings` passed.
+- `build.sh` produced the optimized WebAssembly distribution at 14:46 UTC,
+  with three existing upstream dead-code warnings. Shell syntax checks passed.
+- `cargo-about 0.9.2 --locked --fail` resolved all 240 runtime/build packages.
+  Every package is represented in the generated license page. Required upstream,
+  asset and translation notices are present and served over HTTP; embedded font
+  terms and the IJG acknowledgement are included. No local manifest paths or
+  restricted ArtCraft logo SVGs appear in the distribution.
+- A deliberately missing license tool caused the build to fail while preserving
+  all 16 previously served files byte-for-byte.
+- `uv run --no-project --python 3.12 python -m unittest test_server` passed.
+- Chrome imported the public-domain Great Wave, displayed the new Layers stack
+  and grouped tool rail, and opened Brush studio. README screenshots were
+  refreshed from this build; provenance is in [visuals](visuals.md).
+- Gitleaks 8.30.1 scanned all refs and full reachable history with zero findings.
+  File inventory and screenshot metadata were also reviewed for private content.
+- Focused review of setup, engine pinning, notice generation and build publication
+  found no unresolved release-preparation defects.
+
+## Initial repository preparation checks
 
 Fresh checks on the `06495ac` extension snapshot plus repository preparation:
 
@@ -14,7 +41,7 @@ Fresh checks on the `06495ac` extension snapshot plus repository preparation:
   NOTICE, upstream attribution and referenced asset license texts.
 - `uv run --no-project --python 3.12 python -m unittest test_server`: passed.
 - Fresh Chrome launch imported the public-domain Great Wave, displayed the layer
-  inspector, and opened the brush studio. The README captures come from this run.
+  inspector, and opened the brush studio. The initial README captures came from this run.
   The launch page and SVG cover were inspected. A browser viewport override did
   not take effect, so this run adds no portrait-device claim; existing Rust layout
   tests cover portrait and Split View dimensions.

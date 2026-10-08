@@ -16,6 +16,6 @@ Hokusai's *The Great Wave off Kanagawa*, c. 1831, public domain.
 To reproduce: build and serve this repo, open `/ipad/?webgl`, import the artwork
 through Open, choose Fit, leave Layers visible and capture the page viewport.
 For the brush capture, choose Brush, then “All brush dynamics & preview”. Captures
-were made in Chrome at 1272×846 CSS pixels on 8 October 2026, from the optimized
-extension snapshot `06495ac` and patched engine tree in `upstream.env`.
+were made in Chrome at 1272×902 pixels on 8 October 2026, from a fresh clone's
+optimized extension snapshot `82be479` and patched engine tree in `upstream.env`.
 Keep browser chrome, private files and unrelated tabs out of the image.
