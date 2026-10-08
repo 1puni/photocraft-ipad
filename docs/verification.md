@@ -1,4 +1,21 @@
-# Local verification — 2026-10-08
+# Verification record — 2026-10-08
+
+Entries identify the revision and environment tested. Historical implementation
+snapshots are retained below; the roadmap describes the current direction.
+
+## Command-shelf integration checks
+
+Implementation commit `2ba5edf` is integrated as `989c3ae`, with the publishing
+README, licensing and build scripts preserved. Fresh checks in the publishing
+checkout passed formatting, all 26 tests, and native plus WebAssembly Clippy
+with crate warnings denied. The three existing upstream Wasm dead-code warnings
+are unchanged. The full-history Gitleaks scan found no secrets.
+The optimized Wasm build and locked license packaging also passed, completing
+at 15:26 UTC. No dependency versions, license policy or engine patch changed.
+
+The command/voice browser acceptance below was performed by the implementation
+session on the same source batch. It is distinct from microphone acceptance on
+the physical iPad. Engine tree and the five-patch series are unchanged.
 
 ## Public readiness checks
 
@@ -68,11 +85,11 @@ Tests exercise the Rust workspace, shared touch controls, input policies and bro
 
 A shared Cargo target collision with the OSS review copy initially linked stale UI despite a new output hash. Build output is now isolated under this checkout’s target directory; the browser visibly shows the new rail and Layers stack. The existing layer-reveal helper is exposed by the base fork; its two tests and base lint/layer checks pass.
 
-Release preparation and source may be pushed privately; public visibility awaits V’s go-ahead. No upstream PR has been submitted. Initial visibility remains with the publishing session; implementation sends recurring verified handoffs. Implementation/validation logs are local temporary operational evidence, not publication artifacts.
+No upstream PR was submitted as part of these checks.
 
-## Superseded command shelf and speech experiment
+## Historical command shelf and browser speech adapter (superseded)
 
-The historical `2ba5edf` implementation added a bottom command shelf and browser speech adapter. V rejected its permanent space cost and chose native keyboard transcription instead. Both the shelf and speech adapter have now been removed. That revision passed 26 tests and native/Wasm Clippy; it never established physical iPad microphone acceptance. Current behavior is described below.
+The historical `2ba5edf` implementation added a bottom command shelf and browser speech adapter, since replaced by on-demand search and native keyboard transcription. That revision passed 26 tests and native/Wasm Clippy; it never established physical iPad microphone acceptance. Current behavior is described below.
 
 Optimized preview built and staged at 15:09 UTC. Mac Chrome reopened the saved image/mask PSD, searched "switch to eraser tool" without switching, switched on Enter, restored Brush with the tool-revert action, and searched Levels. Choosing Image / Adjustments opened the shared Levels dialog; Cancel returned to the unchanged document. The native microphone overlay disappeared while the dialog was open and returned afterward. This validates command dispatch and overlay placement, not microphone recognition on either device.
 

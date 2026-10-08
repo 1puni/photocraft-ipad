@@ -5,10 +5,8 @@ embeddings and remembered positive/negative prompts.** Keep PhotoCraft's existin
 colour/graph-cut tools and edge refinement. This is a measured candidate decision,
 not a shipped editor feature or a general model leaderboard.
 
-V requested trying the variants and choosing the most sensible one. V also asked
-why inference was local rather than on the server. Local processing was our initial
-assumption, not V's requirement. V is receptive to it. Server inference remains a
-valid alternative; no server inference service was deployed or rented.
+The evaluation compares local selection approaches and their browser cost.
+Server inference remains an alternative for a separate end-to-end comparison.
 
 ## What ran
 
@@ -147,8 +145,8 @@ Avoid overlapping runs. The receipt server exposes only the disposable `public/`
 directory; model files/runtime binaries are not committed or added to the editor.
 The script's trusted generated fixture inputs are not a public API.
 
-See [asset attribution](ATTRIBUTION.md). This decision and evidence are retained
-locally; publication is coordinated separately with the repository release work.
+See [asset attribution](ATTRIBUTION.md). This directory retains the evaluation
+code, measured results and reproduction instructions alongside the editor source.
 
 Validation: the Rust evaluation executable built in release mode and passed
 Clippy with warnings denied; Python modules compiled; the browser worker passed

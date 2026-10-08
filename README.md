@@ -84,9 +84,8 @@ physical Pencil testing, longer PSD workflows, remaining touch dialogs and
 recovery. The [roadmap](docs/ipad-port.md) and [test record](docs/verification.md)
 keep the detail in one place.
 
-We are preparing this repository for its public debut. A hosted try-it version
-and optional tips are being considered separately; today you can build and run
-the workspace yourself.
+Development happens in this repository. Build and run the workspace locally;
+the roadmap tracks the next editing workflows and device checks.
 
 ## Contribute
 

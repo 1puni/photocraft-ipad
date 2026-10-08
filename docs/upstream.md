@@ -34,7 +34,7 @@ The five source commits are preserved as mail patches in `patches/photocraft/`.
 They apply to the public baseline in `upstream.env`. They have not been submitted.
 Any upstream PR must follow the current guide, include the relevant upstream
 checks, and acknowledge overlapping work. The existing public `1puni/photocraft`
-fork is not the publication channel for the unreleased iPad patches.
+fork is separate from this repository's reproducible iPad patch series.
 
 ## Others working nearby
 
