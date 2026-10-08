@@ -206,3 +206,44 @@ acceptance here is synthetic UI evidence, not browser or physical Pencil
 measurement. The updated preview is served on port 4876, and previous review
 documents remain open. Physical Pencil acceptance and multi-layer dragging
 remain follow-ups.
+
+## Moving selected layers together
+
+UI implementation `2a2305f` allows Arrange on a selected set. The grip snapshots
+the set when the gesture starts; an unselected grip still moves only its own
+layer. Selected rows are excluded from drop feedback. Successful set moves keep
+the active layer and its mask/vector/channel target. Cancelled and in-place
+drops preserve document, history and selection.
+
+Engine patch six, `21a573cb94c31a862afc2f201976639b758631c2`, extends `layer.moveTo`
+with an explicit `layers` parameter while retaining the single-layer/active
+fallback. It normalizes roots in document order, carries selected descendants
+with their selected group once, validates IDs/positions/cycles/depth before
+commit, and records one history step. Explicit set moves capture the live
+selection for Undo. No-op moves create no history entry. Applying all six mail
+patches to the unchanged public baseline reproduced tree
+`6823804243a55b9bd987f15ba7c8b56cf71a4c3f`, matching `upstream.env`.
+
+All 66 extension tests, formatting, native Clippy with warnings denied and Wasm
+check pass. Engine checks pass: all 779 non-ignored unit tests, integration/doc
+targets, architecture layering, the workspace Wasm check and the opt-in
+adversarial-command test. The six new engine tests cover ordered moves across
+parents, selected ancestor/child normalization, malformed inputs, cycles, depth
+overflow, in-place moves, legacy fallback and selection-preserving Undo/Redo.
+The first run caught a stale-history-selection defect, fixed before acceptance.
+
+Unqualified engine Clippy fails on existing `nonminimal_bool` warnings in
+`text/src/cjk.rs`, `engine/src/color_cmds.rs`, `engine/src/fill_cmds.rs`, and
+`manual_range_contains` in the existing fill tests. Those paths are unchanged.
+After fixing the new patch's own warning, engine Clippy passes with only those
+two baseline lint categories allowed. This is a qualified result, not a clean
+unqualified engine Clippy run. Dependency and lockfile contents are unchanged.
+
+The optimized build with locked notices completed at 18:36 UTC. Chrome opened
+the synthetic 29-layer PSD, selected two separated layers and moved the pair
+below another layer. Their relative order, both selected highlights and the
+active layer were preserved. One Undo restored the original order and selection;
+Redo reapplied the move. A subsequent outside drop changed neither order nor
+selection. The artwork stayed unchanged. Console capture has no errors and only
+the existing SetTheme warning. Existing review documents were preserved; the
+Mac/LAN preview remains on port 4876. Physical Pencil acceptance remains open.
