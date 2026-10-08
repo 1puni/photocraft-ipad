@@ -497,3 +497,86 @@ fn add_mask_uses_selection_and_exits_alpha_channel_target() {
     assert!(mask.value(8, 8) > 0.99);
     assert!(mask.value(24, 24) < 0.01);
 }
+
+#[test]
+fn command_tray_switches_tools_and_dispatches_dialogs_without_mutating_on_search() {
+    use egui_kittest::{Harness, kittest::Queryable};
+    let mut app = app();
+    app.run("file.new", json!({"width":32,"height":32}))
+        .unwrap();
+    let before = app.session.active().unwrap().doc.clone();
+    let mut h = Harness::builder()
+        .with_size(vec2(1194., 834.))
+        .build_ui_state(
+            |ui, (app, w): &mut (PhotocraftApp, TabletUi)| w.show(app, ui),
+            (app, TabletUi::default()),
+        );
+    h.state_mut().1.command_text = "switch to eraser tool".into();
+    h.run_steps(3);
+    h.get_by_label("Find command").click();
+    h.run_steps(3);
+    assert_eq!(h.state().0.ui.tool, Tool::Brush, "search must not execute");
+    h.get_by_label("Eraser Tool   ·   Tools").click();
+    h.run_steps(3);
+    assert_eq!(h.state().0.ui.tool, Tool::Eraser);
+    assert!(!h.state().1.command_tray_open);
+    h.get_by_label("Revert tool switch").click();
+    h.run_steps(3);
+    assert_eq!(h.state().0.ui.tool, Tool::Brush);
+    h.state_mut().1.command_text = "levels".into();
+    h.get_by_label("Find command").click();
+    h.run_steps(3);
+    assert!(h.state().1.command_tray_open);
+    assert_eq!(h.state().0.session.active().unwrap().doc, before);
+    let result = h.get_by_label("Levels…   ·   Image / Adjustments");
+    result.click();
+    h.run_steps(3);
+    assert_eq!(h.state().0.ui.dialogs.len(), 1);
+    assert!(!h.state().1.command_tray_open);
+}
+
+#[test]
+fn portrait_commands_replace_inspector_and_leave_canvas_space() {
+    use egui_kittest::{Harness, kittest::Queryable};
+    for size in [vec2(834., 1194.), vec2(507., 768.), vec2(507., 450.)] {
+        let mut h = Harness::builder().with_size(size).build_ui_state(
+            |ui, (app, w, canvas): &mut (PhotocraftApp, TabletUi, egui::Rect)| {
+                w.show(app, ui);
+                *canvas = ui.available_rect_before_wrap();
+            },
+            (app(), TabletUi::default(), egui::Rect::NOTHING),
+        );
+        h.state_mut().1.command_tray_open = true;
+        h.run_steps(3);
+        assert!(
+            h.state().2.height() >= 160.,
+            "canvas collapsed at {size:?}: {:?}",
+            h.state().2
+        );
+        assert!(h.state().1.inspector_open, "preserve inspector state");
+        assert!(h.query_by_label("Layers").is_none());
+        h.get_by_label("Close commands").click();
+        h.run_steps(3);
+        assert!(h.query_all_by_label("Layers").next().is_some());
+    }
+}
+
+#[test]
+fn window_commands_show_tablet_panels_instead_of_hidden_desktop_docks() {
+    let ctx = egui::Context::default();
+    let mut app = app();
+    let mut w = TabletUi::default();
+    for (id, panel) in [
+        ("window.toggle.history", Inspector::History),
+        ("window.layers", Inspector::Layers),
+        ("window.toggle.color", Inspector::Color),
+        ("window.brushes", Inspector::Brush),
+    ] {
+        w.inspector_open = false;
+        w.invoke(&mut app, &ctx, id, json!({}));
+        assert_eq!(w.inspector, panel);
+        assert!(w.inspector_open);
+    }
+    w.invoke(&mut app, &ctx, "window.properties", json!({}));
+    assert_eq!(w.sheet, Some(Sheet::LayerProperties));
+}
