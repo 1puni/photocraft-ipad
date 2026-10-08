@@ -1,5 +1,5 @@
 use super::*;
-use photocraft_ui_egui::{brush_panel, color_picker_ui};
+use photocraft_ui_egui::brush_panel;
 
 impl TabletUi {
     pub(super) fn brush(&mut self, app: &mut PhotocraftApp, ui: &mut Ui) {
@@ -50,117 +50,6 @@ impl TabletUi {
                 );
             }
         }
-    }
-    pub(super) fn color(&mut self, app: &mut PhotocraftApp, ui: &mut Ui) {
-        ui.horizontal(|ui| {
-            if button(ui, "Foreground", !self.color_background).clicked() {
-                self.color_background = false;
-                self.color_hex.clear();
-            }
-            if button(ui, "Background", self.color_background).clicked() {
-                self.color_background = true;
-                self.color_hex.clear();
-            }
-        });
-        let source = if self.color_background {
-            app.session.tools.background
-        } else {
-            app.session.tools.foreground
-        };
-        let mut hsv = color_picker_ui::rgb_to_hsv([source[0], source[1], source[2]]);
-        if hsv[1] <= f32::EPSILON || hsv[2] <= f32::EPSILON {
-            hsv[0] = self.color_hue;
-        }
-        if self.color_source != Some(source) {
-            self.color_hex = color_picker_ui::hex([source[0], source[1], source[2]]);
-            self.color_source = Some(source);
-        }
-        let mut changed = false;
-        let edge = ui.available_width().min(280.);
-        let (rect, response) =
-            ui.allocate_exact_size(vec2(edge, edge.min(210.)), egui::Sense::click_and_drag());
-        // Tessellate a saturation/value field; hue is controlled by the wide slider below.
-        for y in 0..24 {
-            for x in 0..24 {
-                let rgb = color_picker_ui::hsv_to_rgb(hsv[0], x as f32 / 23., 1. - y as f32 / 23.);
-                let tile = egui::Rect::from_min_max(
-                    rect.min
-                        + vec2(
-                            x as f32 / 24. * rect.width(),
-                            y as f32 / 24. * rect.height(),
-                        ),
-                    rect.min
-                        + vec2(
-                            (x + 1) as f32 / 24. * rect.width(),
-                            (y + 1) as f32 / 24. * rect.height(),
-                        ),
-                );
-                ui.painter().rect_filled(
-                    tile,
-                    0.,
-                    egui::Color32::from_rgb(
-                        (rgb[0] * 255.) as u8,
-                        (rgb[1] * 255.) as u8,
-                        (rgb[2] * 255.) as u8,
-                    ),
-                );
-            }
-        }
-        let marker = rect.min + vec2(hsv[1] * rect.width(), (1. - hsv[2]) * rect.height());
-        ui.painter()
-            .circle_stroke(marker, 6., egui::Stroke::new(2., egui::Color32::WHITE));
-        ui.painter()
-            .circle_stroke(marker, 8., egui::Stroke::new(1., egui::Color32::BLACK));
-        if (response.dragged() || response.clicked())
-            && let Some(p) = response.interact_pointer_pos()
-        {
-            hsv[1] = ((p.x - rect.left()) / rect.width()).clamp(0., 1.);
-            hsv[2] = (1. - (p.y - rect.top()) / rect.height()).clamp(0., 1.);
-            changed = true;
-        }
-        changed |= ui
-            .add(egui::Slider::new(&mut hsv[0], 0.0..=359.9).text("Hue"))
-            .changed();
-        self.color_hue = hsv[0];
-        let rgb = color_picker_ui::hsv_to_rgb(hsv[0], hsv[1], hsv[2]);
-        if self.color_hex.is_empty() || changed {
-            self.color_hex = color_picker_ui::hex(rgb);
-        }
-        ui.horizontal(|ui| {
-            ui.add_sized([130., 44.], egui::TextEdit::singleline(&mut self.color_hex));
-            if button(ui, "Set hex", false).clicked() {
-                if let Some(rgb) = color_picker_ui::parse_hex(&self.color_hex) {
-                    self.set_color(app, ui.ctx(), rgb);
-                } else {
-                    self.message = "Enter a six-digit hex colour, for example #245d85.".into();
-                }
-            }
-        });
-        if changed {
-            self.set_color(app, ui.ctx(), rgb);
-        }
-        ui.horizontal_wrapped(|ui|{
-            if button(ui,"Swap colours",false).clicked(){self.invoke(app,ui.ctx(),"tools.setColors",json!({"foreground":app.session.tools.background,"background":app.session.tools.foreground}));self.color_hex.clear();}
-            if button(ui,"Eyedropper",app.ui.tool==Tool::Eyedropper).clicked(){app.ui.tool=Tool::Eyedropper;}
-        });
-    }
-    pub(super) fn set_color(
-        &mut self,
-        app: &mut PhotocraftApp,
-        ctx: &egui::Context,
-        rgb: [f32; 3],
-    ) {
-        let key = if self.color_background {
-            "background"
-        } else {
-            "foreground"
-        };
-        self.invoke(
-            app,
-            ctx,
-            "tools.setColors",
-            json!({key:[rgb[0],rgb[1],rgb[2],1.]}),
-        );
     }
     pub(super) fn history(&mut self, app: &mut PhotocraftApp, ui: &mut Ui) {
         ui.horizontal(|ui| {

@@ -1,5 +1,6 @@
 //! Touch chrome. Document edits always use the shared command path.
 mod channels_paths;
+mod colour;
 mod command_tray;
 mod inspectors;
 mod layers;
@@ -45,8 +46,8 @@ pub struct TabletUi {
     multi_select: bool,
     color_background: bool,
     color_hex: String,
-    color_hue: f32,
     color_source: Option<[f32; 4]>,
+    colour: colour::ColourState,
     brush_name: String,
     path_name: String,
     rename_layer: Option<(u64, u64)>,
@@ -77,8 +78,8 @@ impl Default for TabletUi {
             multi_select: false,
             color_background: false,
             color_hex: String::new(),
-            color_hue: 0.0,
             color_source: None,
+            colour: Default::default(),
             brush_name: String::from("My brush"),
             path_name: String::from("Path 1"),
             rename_layer: None,
@@ -130,6 +131,9 @@ impl TabletUi {
         if id.starts_with("window.")
             && let Some(inspector) = inspector
         {
+            if matches!(id, "window.swatches" | "window.toggle.swatches") {
+                self.colour.view = colour::ColourView::Swatches;
+            }
             self.inspector = inspector;
             self.inspector_open = true;
             self.message.clear();
@@ -355,6 +359,10 @@ impl TabletUi {
         });
         if self.inspector == Inspector::Layers {
             self.layers(app, ui);
+            return;
+        }
+        if self.inspector == Inspector::Color {
+            self.color(app, ui);
             return;
         }
         ui.strong(match self.inspector {

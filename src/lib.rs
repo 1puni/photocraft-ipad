@@ -58,10 +58,25 @@ impl photocraft_web::web::BrowserWorkspace for BrowserWorkspace {
         &mut self,
         app: &mut photocraft_ui_egui::PhotocraftApp,
         ui: &mut egui::Ui,
-        _frame: &mut eframe::Frame,
+        frame: &mut eframe::Frame,
     ) {
+        const SWATCHES: &str = "photocraft.ipad.swatches.v1";
+        if !self.workspace.swatches_loaded() {
+            let saved = frame
+                .storage()
+                .and_then(|storage| storage.get_string(SWATCHES));
+            self.workspace.restore_swatches(saved.as_deref());
+        }
         photocraft_ui_egui::touch_ui::set_enabled(ui.ctx(), true);
         app.ui_with_workspace(ui, |app, ui| self.workspace.show(app, ui));
+        if let Some(saved) = self.workspace.swatches_to_store() {
+            let success = frame.storage_mut().is_some_and(|storage| {
+                storage.set_string(SWATCHES, saved.clone());
+                storage.get_string(SWATCHES).as_deref() == Some(saved.as_str())
+            });
+            self.workspace.swatches_stored(success);
+            ui.ctx().request_repaint();
+        }
         self.contacts.borrow_mut().area =
             if app.ui.dialogs.is_empty() && !self.workspace.clone_source_pick {
                 photocraft_ui_egui::canvas::ViewXform::active(app).map(|xf| xf.rect)
