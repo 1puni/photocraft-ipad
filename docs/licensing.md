@@ -20,9 +20,8 @@ permission from upstream is required for this independent workspace.
 | Our cover and screenshots | Original SVG and actual browser captures; the displayed Hokusai artwork is public domain. Sources in [ATTRIBUTION.md](../ATTRIBUTION.md) |
 
 “PhotoCraft on iPad” describes the independent adaptation. We do not call it
-ArtCraft, an official edition, or claim upstream endorsement. Apache-2.0's patent
-grant applies on its own terms; the code license does not grant trademarks or
-settle third-party codec patent questions for a future commercial distribution.
+ArtCraft or an official edition. Upstream credit identifies the foundation of
+this independent project.
 
 ## Embedded assets and dependencies
 
@@ -57,3 +56,8 @@ cargo install cargo-about --version 0.9.2 --locked --features cli
 compilation and notice generation succeed. `--locked --fail` prevents a changed
 lockfile or an unresolved license from silently producing a release artifact.
 The launch page links Credits and Dependency licenses.
+
+The standalone segmentation evaluation has its own [asset inventory](../experiments/segmentation/ATTRIBUTION.md).
+Its committed illustrations use public-domain/CC0 fixtures. Pinned model weights
+and runtime binaries are downloaded separately, outside Git and the editor build;
+they are not redistributed as part of this source repository.

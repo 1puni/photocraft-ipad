@@ -2,7 +2,7 @@
 
 This is an independent iPad browser workspace built on PhotoCraft. Credit the
 upstream engine and keep changes small, understandable, and easy to move upstream.
-The repository is currently private while its first public release is prepared.
+Development happens on `main`; use a topic branch for work in progress.
 
 Start with [setup](README.md#build-and-try-locally) and the
 [acceptance matrix](docs/ipad-port.md). Report extension issues here. Before
