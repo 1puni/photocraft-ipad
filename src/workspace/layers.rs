@@ -307,24 +307,39 @@ impl TabletUi {
                         } else {
                             ""
                         };
-                        let response = ui
-                            .scope_builder(
-                                egui::UiBuilder::new().id(egui::Id::new((
-                                    "ipad-layer-name",
-                                    doc.id.0,
-                                    layer.id.0,
-                                ))),
-                                |ui| {
-                                    ui.add_sized(
-                                        [ui.available_width().max(20.), 48.],
-                                        Button::new(())
-                                            .left_text(format!("{}{suffix}", layer.name))
-                                            .truncate()
-                                            .frame(false),
-                                    )
-                                },
-                            )
-                            .inner;
+                        let (name_rect, _) = ui.allocate_exact_size(
+                            vec2(ui.available_width().max(20.), 48.),
+                            egui::Sense::hover(),
+                        );
+                        let response = ui.interact(
+                            name_rect,
+                            egui::Id::new(("ipad-layer-name", doc.id.0, layer.id.0)),
+                            egui::Sense::click(),
+                        );
+                        if ui.is_rect_visible(name_rect) {
+                            let galley = egui::WidgetText::from(format!("{}{suffix}", layer.name))
+                                .into_galley(
+                                    ui,
+                                    Some(egui::TextWrapMode::Truncate),
+                                    name_rect.width() - 4.,
+                                    egui::TextStyle::Button,
+                                );
+                            let pos = egui::pos2(
+                                name_rect.left() + 2.,
+                                name_rect.center().y - galley.size().y / 2.,
+                            );
+                            ui.painter()
+                                .with_clip_rect(ui.clip_rect().intersect(name_rect))
+                                .galley(pos, galley, t.text);
+                            if response.has_focus() {
+                                ui.painter().rect_stroke(
+                                    name_rect.shrink(1.),
+                                    2.,
+                                    ui.visuals().selection.stroke,
+                                    egui::StrokeKind::Inside,
+                                );
+                            }
+                        }
                         response.widget_info(|| {
                             egui::WidgetInfo::labeled(
                                 egui::WidgetType::Button,
@@ -667,6 +682,17 @@ mod tests {
 
     const NAME: &str = "Foreground restoration with a very long descriptive name";
 
+    fn name_is_painted(shape: &egui::Shape, bounds: egui::Rect) -> bool {
+        match shape {
+            egui::Shape::Text(text) if text.galley.job.text.contains(NAME) => {
+                let overlap = text.visual_bounding_rect().intersect(bounds);
+                overlap.width() > 20. && overlap.height() > 5.
+            }
+            egui::Shape::Vec(shapes) => shapes.iter().any(|shape| name_is_painted(shape, bounds)),
+            _ => false,
+        }
+    }
+
     fn fixture(group: bool, masks: usize) -> PhotocraftApp {
         let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), Default::default());
         app.run(
@@ -814,6 +840,25 @@ mod tests {
             .run("layer.select", json!({"layer":target.0}))
             .unwrap();
         h.run_steps(4);
+        for (size, scale) in [
+            (vec2(1194., 834.), 1.),
+            (vec2(834., 1194.), 1.),
+            (vec2(1194., 834.), 1.),
+        ] {
+            h.set_size(size).set_pixels_per_point(scale);
+            h.run_steps(4);
+            h.get_by_label(&format!("Select layer: {NAME}"))
+                .scroll_to_me();
+            h.run_steps(3);
+            let bounds = h.get_by_label(&format!("Select layer: {NAME}")).rect();
+            assert!(
+                h.output()
+                    .shapes
+                    .iter()
+                    .any(|shape| name_is_painted(&shape.shape, bounds.intersect(shape.clip_rect))),
+                "name not painted after resize: {size:?} scale {scale}"
+            );
+        }
         let name = h.get_by_label(&format!("Select layer: {NAME}")).rect();
         let image = h.get_by_label(&format!("Image: {NAME}")).rect();
         let footer = h.get_by_label("New layer").rect();
