@@ -1,7 +1,7 @@
 # Public source release
 
 The maintainer authorized publication on 8 October 2026. The v0.1 source release
-includes the iPad workspace, seven reproducible PhotoCraft patches, a local preview
+includes the iPad workspace, eight reproducible PhotoCraft patches, a local preview
 and a standalone segmentation evaluation. Hosted demos remain a separate project.
 
 ## Release checks
@@ -20,38 +20,40 @@ and a standalone segmentation evaluation. Hosted demos remain a separate project
 ## Verified development snapshot — 8 October 2026
 
 Public source at
-[`9d1b1b0`](https://github.com/1puni/photocraft-ipad/commit/9d1b1b094cd1b60b1f7afe24b22a7d22e5a14816)
-includes the native-keyboard correction, Colour studio, docked masks and layer properties,
+[`60123db`](https://github.com/1puni/photocraft-ipad/commit/60123dbb0045cd5e7d2611f083c3b706e334746f)
+includes the native-keyboard correction, Colour studio, docked masks with density
+and feather, docked layer properties,
 readable nested layer rows, welcome attribution, and layer/group/selected-set
 Arrange with edge autoscroll, and pre-edit layer selection restoration on Undo.
 The README presents these workflows with
 attributed screenshots; [visual provenance](visuals.md) identifies their build.
 
-The merged source, build configuration and pins match tested implementation
-`28afe7a`. All **73 extension tests**, formatting,
+The merged source, build configuration and pins match the tested batch
+(`2d7c167` UI, `fb12080` patch/pin). All **77 extension tests**, formatting,
 extension native Clippy with warnings denied and Wasm check passed.
-The publication checkout independently passed all 73 extension tests.
-The optimized build and locked dependency notices completed at 19:05 UTC.
-Chrome repeated the original opacity fixture: select a different layer, drag
-opacity from 100% to 39%, Undo to 100%, then Redo to 39%. The selected layer stayed
-correct throughout, with no console errors. This resolves the property-edit Undo
-selection limitation in the previous snapshot. Coalesced updates retain the
-gesture's initial Undo target; selecting a layer alone creates no history step.
+The publication checkout independently passed all 77 extension tests.
+The optimized build and locked dependency notices completed at 19:20 UTC.
+Chrome verified density changes and typed 40 px feather on both mask types,
+visible edge changes, independent values and Undo with the target retained.
+A saved 251,514-byte PSD reopened with its 40 px pixel feather and rendered soft
+edge intact. No console errors were captured.
 Continuous edge holds, offscreen targeting, cancellation and short portrait docks
 have synthetic UI coverage. Physical Pencil acceptance remains on the
 [roadmap](ipad-port.md), along with the remaining port.
 
-The seventh patch captures live pre-edit selection in the shared successful-edit
-path. A fresh local clone in the publication checkout independently reproduced
-the exact engine tree by applying all seven patches to the unchanged upstream
-baseline. The first six patches, dependencies, lockfile and build scripts are
+The eighth patch adds a validated shared pixel-mask property command, reusing
+existing composition. Vector-mask properties use their existing command.
+A fresh local clone in the publication checkout independently reproduced
+the exact engine tree by applying all eight patches to the unchanged upstream
+baseline. The first seven patches, dependencies, lockfile and build scripts are
 unchanged.
 
-Engine verification passed 783 non-ignored unit tests, integration/doc targets,
-seven history tests, architecture layering, Wasm and the opt-in adversarial-command test. Strict engine
+Engine verification passed 789 non-ignored unit tests, integration/doc targets,
+architecture layering, Wasm, command parity and the opt-in adversarial-command
+test. Strict engine
 Clippy still reports pre-existing `nonminimal_bool` and `manual_range_contains`
 findings in unchanged code; it passes with only those two categories allowed.
-Detailed results are in the [test record](verification.md#undo-keeps-the-pre-edit-layer-selection).
+Detailed results are in the [test record](verification.md#mask-density-and-feather-beside-the-canvas).
 
 ## First public development batch
 
@@ -75,10 +77,10 @@ remain on the roadmap.
 
 Use `main` for verified batches and topic branches for ongoing work. Fetch before
 pushing; preserve other contributors' work and merge diverged histories normally.
-Each checkout uses its own `target/` directory. Keep `upstream.env` and the seven
+Each checkout uses its own `target/` directory. Keep `upstream.env` and the eight
 engine patches synchronized, and regenerate dependency notices when dependencies
 change. The engine baseline is `5896f0b`; the patched tree is
-`62cc2633db6d09647e80dfa2e053539bfcdaff05` (equivalent to `a28993e`).
+`0314c46e7585c5e313dded3b95ac2fd9bacd7e76` (equivalent to `9fe4e48`).
 
 [The roadmap](ipad-port.md) owns upcoming workflow and physical-device acceptance.
 [Security reports](../SECURITY.md) have a private reporting route. Upstream

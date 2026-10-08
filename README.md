@@ -54,6 +54,9 @@ Keep drawing while mask controls stay in the dock. Choose **Composite, Mask only
 or Overlay**, toggle Enabled and Linked, load a selection, invert, or apply and
 remove a mask. Vector masks expose path editing and conversion to a pixel mask.
 Switching targets finishes Quick Mask while preserving the selection you edited.
+Adjust **density and feather** independently for pixel and vector masks, using
+44-point sliders or precise numeric entry. Feather uses a logarithmic slider
+for fine control near sharp edges, and each drag is one Undo step.
 
 Layers scroll independently above pinned actions. Nested groups and masked layers
 use compact or two-line rows to keep names readable and targets easy to hit;
@@ -80,9 +83,10 @@ contributors, supplies the image editor underneath: its formats, rendering,
 brush engine and shared controls. This independent [1puni](https://1puni.com)
 project brings that foundation to a dedicated iPad workspace.
 
-Reusable engine improvements are kept as seven reviewable patches: browser host
+Reusable engine improvements are kept as eight reviewable patches: browser host
 hooks, touch controls, batched pen fidelity, responsive dialogs, layer reveal,
-multi-layer arrangement, and pre-edit selection restoration on Undo. Our
+multi-layer arrangement, pre-edit selection restoration on Undo, and pixel-mask
+properties. Our
 [upstream notes](docs/upstream.md) explain the proposed contribution path and
 recognize the other mobile and browser projects working nearby.
 
