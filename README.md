@@ -65,6 +65,10 @@ Hold the dragged handle near
 the stack's top or bottom edge to scroll to offscreen layers. Ordinary row drags
 still scroll the stack.
 
+Layer properties stay in the dock too: rename, blend mode, opacity, visibility
+and locks, with Back pinned above the scrolling controls. Opening properties
+keeps your image or mask paint target active and leaves the canvas in reach.
+
 <img src="public/images/mask-controls.jpg" alt="Docked pixel-mask controls beside The Great Wave, with Composite, Mask only, Overlay, Enabled, Linked, Load selection and Invert mask actions." width="100%">
 
 ## Built with PhotoCraft

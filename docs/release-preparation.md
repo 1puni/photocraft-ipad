@@ -20,20 +20,22 @@ and a standalone segmentation evaluation. Hosted demos remain a separate project
 ## Verified development snapshot — 8 October 2026
 
 Public source at
-[`44dfbde`](https://github.com/1puni/photocraft-ipad/commit/44dfbde6195a5f81df7dc511bf44e366c58b42f7)
-includes the native-keyboard correction, Colour studio, docked mask controls,
+[`dd4973e`](https://github.com/1puni/photocraft-ipad/commit/dd4973e46ca9074ab3780235f38e8b338c358c71)
+includes the native-keyboard correction, Colour studio, docked masks and layer properties,
 readable nested layer rows, welcome attribution, and layer/group/selected-set
 Arrange with edge autoscroll. The README presents these workflows with
 attributed screenshots; [visual provenance](visuals.md) identifies their build.
 
-The merged source, build configuration and pins match the tested batch
-(`2a2305f` UI, `bfc1ead` patch/pin). All **66 extension tests**, formatting,
+The merged source, build configuration and pins match tested implementation
+`8a38a53`. All **73 extension tests**, formatting,
 extension native Clippy with warnings denied and Wasm check passed.
-The publication checkout independently passed all 66 extension tests.
-The optimized build and locked dependency notices completed at 18:36 UTC.
-Chrome acceptance on a synthetic 29-layer PSD covered selected-pair movement,
-relative order and active-target preservation, one-step Undo/Redo and outside-drop
-cancellation, with no console errors.
+The publication checkout independently passed all 73 extension tests.
+The optimized build and locked dependency notices completed at 18:54 UTC.
+Chrome acceptance covered opacity dragging and Undo, renaming, pinned Back while
+scrolling, and paint-target preservation between properties and mask controls,
+with no console errors. Property-edit Undo restores the value but can return
+selection to an earlier history target; this existing engine behavior is recorded
+as a separate follow-up in the [test record](verification.md).
 Continuous edge holds, offscreen targeting, cancellation and short portrait docks
 have synthetic UI coverage. Physical Pencil acceptance remains on the
 [roadmap](ipad-port.md), along with the remaining port.
@@ -41,7 +43,8 @@ have synthetic UI coverage. Physical Pencil acceptance remains on the
 The sixth patch extends the shared `layer.moveTo` command compatibly. A fresh
 local clone in the publication checkout independently reproduced the exact
 engine tree by applying all six patches to the unchanged upstream baseline.
-The first five patches, dependencies and lockfile are unchanged.
+This properties batch retains that engine tree, all six patches, dependencies
+and lockfile unchanged.
 
 Engine verification passed 779 non-ignored unit tests, integration/doc targets,
 architecture layering, Wasm and the opt-in adversarial-command test. Strict engine
