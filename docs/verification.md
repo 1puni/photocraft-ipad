@@ -179,3 +179,30 @@ The artwork remained unchanged. Console capture has no errors and only the
 existing SetTheme warning. The preview remains on port 4876; other review
 documents were preserved. Physical Pencil drag/scroll acceptance, multi-layer
 dragging and long-stack edge autoscroll remain open.
+
+## Long-stack arrangement
+
+Implementation `9d60555` adds edge autoscroll during a dedicated-handle drag.
+Only the visible stack accepts it: a band up to 36 points at each edge controls
+direction and speed, with a neutral middle even in a short portrait dock.
+Elapsed time is capped to avoid a jump after a stalled frame, and offsets clamp
+to the content bounds. Leaving the band or ending/cancelling the drag clears the
+timer; ordinary row scrolling retains the existing ScrollArea behavior.
+
+All 62 tests, formatting, native Clippy with warnings denied and Wasm check pass.
+Held-pointer tests scroll until a named, initially hidden layer is visible,
+drop on that same layer and verify Undo. Further checks cover reversing at the
+top edge, stopping outside the stack, no idle drift, short portrait content and
+Touch Cancel during active autoscroll. No ScrollArea state reset, engine patch,
+pin or dependency change was needed.
+
+The optimized build with locked notices completed at 18:20 UTC. Chrome opened a
+synthetic 109,066-byte PSD with 29 layers, scrolled it by dragging ordinary rows,
+then moved a layer by its handle at the scrolled position. Undo restored the
+order and the previously active layer; the artwork remained unchanged. Console
+capture has no errors and only the existing SetTheme warning. The browser tool
+performs complete drags rather than sustained holds, so continuous edge-hold
+acceptance here is synthetic UI evidence, not browser or physical Pencil
+measurement. The updated preview is served on port 4876, and previous review
+documents remain open. Physical Pencil acceptance and multi-layer dragging
+remain follow-ups.
