@@ -29,9 +29,10 @@ about scope before proposing its inclusion. Offer reusable fixes separately:
 | Browser host/workspace hooks | `022408e` | Discuss the seam first; this is an architecture decision |
 | Shared layer reveal API | `af949b1` | Small host API addition; supports layer targeting in alternate workspaces |
 | Multi-layer arrangement command | `21a573c` | Explicit layer-set moves, preserved order and selection, one Undo step; existing single-layer callers retained |
+| Pre-edit layer selection in history | `a28993e` | Capture the live selection at successful edit boundaries; preserve a coalesced gesture's original Undo target and restore merged selections |
 | iPad workspace, navigation, diagnostics and hosting | This repository | Remain here unless upstream requests otherwise |
 
-The six source commits are preserved as mail patches in `patches/photocraft/`.
+The seven source commits are preserved as mail patches in `patches/photocraft/`.
 They apply to the public baseline in `upstream.env`. They have not been submitted.
 Any upstream PR must follow the current guide, include the relevant upstream
 checks, and acknowledge overlapping work. The existing public `1puni/photocraft`

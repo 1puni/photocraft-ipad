@@ -1302,8 +1302,12 @@ mod tests {
 
     #[test]
     fn docked_opacity_drag_coalesces_into_one_undo_step() {
-        let app = fixture(false, 0);
+        let mut app = fixture(false, 0);
         let layer = app.session.active().unwrap().active_layer.unwrap();
+        app.run("layer.new.layer", json!({})).unwrap();
+        // Selection is not an edit. Undoing the following drag must still keep
+        // this live target rather than returning to the newly created layer.
+        app.run("layer.select", json!({"layer":layer.0})).unwrap();
         let initial_opacity = app
             .session
             .active()
@@ -1353,6 +1357,14 @@ mod tests {
                 .opacity,
             initial_opacity
         );
+        let st = h.state().0.session.active().unwrap();
+        assert_eq!(st.active_layer, Some(layer));
+        assert_eq!(st.selected_layers(), vec![layer]);
+        h.state_mut().0.run("edit.redo", json!({})).unwrap();
+        let st = h.state().0.session.active().unwrap();
+        assert_eq!(st.active_layer, Some(layer));
+        assert_eq!(st.selected_layers(), vec![layer]);
+        assert_eq!(st.doc.layer(layer).unwrap().opacity, changed_opacity);
     }
 
     #[test]

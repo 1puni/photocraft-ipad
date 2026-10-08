@@ -1,0 +1,208 @@
+From a28993ebeee94199fa63ea1d077219f22c36cfc0 Mon Sep 17 00:00:00 2001
+From: Evita Stenqvist <evita@stenqvist.co>
+Date: Thu, 8 Oct 2026 21:00:33 +0200
+Subject: [PATCH] Restore pre-edit layer targets on undo
+
+---
+ crates/engine/src/layer_multi_cmds.rs | 11 ++--
+ crates/engine/src/lib.rs              |  2 +
+ crates/engine/src/tests.rs            | 77 +++++++++++++++++++++++++++
+ crates/ops/src/lib.rs                 | 17 +++---
+ 4 files changed, 95 insertions(+), 12 deletions(-)
+
+diff --git a/crates/engine/src/layer_multi_cmds.rs b/crates/engine/src/layer_multi_cmds.rs
+index 66acde2..1c394e2 100644
+--- a/crates/engine/src/layer_multi_cmds.rs
++++ b/crates/engine/src/layer_multi_cmds.rs
+@@ -243,9 +243,6 @@ pub fn move_to(s: &mut Session, p: &Value) -> Result<Value> {
+     }
+ 
+     let legacy_active = roots.last().copied();
+-    if explicit && let Some(state) = s.active_mut() {
+-        state.history.set_current_layers(photocraft_ops::LayerTarget { active: state.active_layer, selected: state.selected_layers.clone() });
+-    }
+     s.edit("Reorder Layers", |doc, active| {
+         *doc = after;
+         if !explicit {
+@@ -1406,7 +1403,13 @@ mod tests {
+             assert_eq!(sel(&s), vec![m]);
+             s.undo();
+             assert_eq!(doc(&s).layer_count(), before);
+-            assert_eq!(sel(&s), vec![c], "undo leaves a valid selection");
++            assert_eq!(s.active().unwrap().active_layer, Some(c));
++            assert_eq!(sel(&s), vec![a, c], "undo restores the full selection that was merged");
++            s.redo();
++            assert_eq!(s.active().unwrap().active_layer, Some(m));
++            assert_eq!(sel(&s), vec![m], "redo restores the merged layer target");
++            s.undo();
++            s.execute("layer.select", json!({"layer": c.0})).unwrap();
+             // One layer selected: Merge Down.
+             s.execute("layer.mergeLayers", json!({})).unwrap();
+             assert_eq!(doc(&s).layer_count(), before - 1);
+diff --git a/crates/engine/src/lib.rs b/crates/engine/src/lib.rs
+index 48aad05..437e3b8 100644
+--- a/crates/engine/src/lib.rs
++++ b/crates/engine/src/lib.rs
+@@ -438,6 +438,7 @@ impl Session {
+         let restrict = self.color_restrict;
+         let st = self.active_mut().ok_or(EngineError::NoDocument)?;
+         let before = st.doc.clone();
++        let before_layers = st.layer_target();
+         let mut doc = (*before).clone();
+         let mut active = st.active_layer;
+         let r = f(&mut doc, &mut active)?;
+@@ -452,6 +453,7 @@ impl Session {
+         let st = self.active_mut().ok_or(EngineError::NoDocument)?;
+         let layers = st.layer_target();
+         if key.is_none() || st.coalesce != key || !st.history.can_undo() {
++            st.history.set_current_layers(before_layers);
+             st.history.record(label, before, layers);
+             st.history.trim(&st.doc);
+         } else {
+diff --git a/crates/engine/src/tests.rs b/crates/engine/src/tests.rs
+index 4bcd486..c6e0f0e 100644
+--- a/crates/engine/src/tests.rs
++++ b/crates/engine/src/tests.rs
+@@ -229,6 +229,83 @@ fn undo_and_redo_restore_the_targeted_layers() {
+     assert_eq!(target(&s), copies);
+ }
+ 
++#[test]
++fn an_edit_records_the_live_single_layer_target_before_editing() {
++    let mut s = session_with_doc();
++    let a = LayerId(s.execute("layer.new.layer", json!({})).unwrap()["layer"].as_u64().unwrap());
++    let b = LayerId(s.execute("layer.new.layer", json!({})).unwrap()["layer"].as_u64().unwrap());
++    let target = |s: &Session| {
++        let state = s.active().unwrap();
++        (state.active_layer, state.selected_layers())
++    };
++
++    s.execute("layer.select", json!({"layer": a.0})).unwrap();
++    s.execute("layer.setProps", json!({"opacity": 0.5})).unwrap();
++    s.execute("layer.select", json!({"layer": b.0})).unwrap();
++    assert!(s.undo());
++    assert_eq!(target(&s), (Some(a), vec![a]), "undo restores the target at edit start");
++    assert_eq!(s.active().unwrap().doc.layer(a).unwrap().opacity, 1.0);
++    assert!(s.redo());
++    assert_eq!(target(&s), (Some(a), vec![a]), "selection after the edit does not replace its recorded target");
++    assert_eq!(s.active().unwrap().doc.layer(a).unwrap().opacity, 0.5);
++}
++
++#[test]
++fn an_edit_records_the_live_multiselection_before_editing() {
++    let mut s = session_with_doc();
++    let a = LayerId(s.execute("layer.new.layer", json!({})).unwrap()["layer"].as_u64().unwrap());
++    let b = LayerId(s.execute("layer.new.layer", json!({})).unwrap()["layer"].as_u64().unwrap());
++    s.execute("layer.select", json!({"layer": a.0})).unwrap();
++    s.execute("layer.select", json!({"layer": b.0, "mode": "toggle"})).unwrap();
++    s.execute("layer.setProps", json!({"opacity": 0.5})).unwrap();
++    s.execute("layer.select", json!({"layer": a.0})).unwrap();
++    assert!(s.undo());
++    let state = s.active().unwrap();
++    assert_eq!(state.active_layer, Some(b));
++    assert_eq!(state.selected_layers(), vec![a, b]);
++    assert!(s.redo());
++    let state = s.active().unwrap();
++    assert_eq!(state.active_layer, Some(b));
++    assert_eq!(state.selected_layers(), vec![a, b]);
++}
++
++#[test]
++fn coalesced_edits_keep_the_first_pre_edit_target() {
++    let mut s = session_with_doc();
++    let a = LayerId(s.execute("layer.new.layer", json!({})).unwrap()["layer"].as_u64().unwrap());
++    let b = LayerId(s.execute("layer.new.layer", json!({})).unwrap()["layer"].as_u64().unwrap());
++    s.execute("layer.select", json!({"layer": a.0})).unwrap();
++    s.execute("layer.setProps", json!({"opacity": 0.8, "coalesce": "opacity-drag"})).unwrap();
++    s.execute("layer.select", json!({"layer": b.0})).unwrap();
++    s.execute("layer.setProps", json!({"opacity": 0.6, "coalesce": "opacity-drag"})).unwrap();
++
++    assert!(s.undo());
++    let state = s.active().unwrap();
++    assert_eq!(state.active_layer, Some(a), "later coalesced edits cannot replace the gesture's first target");
++    assert_eq!(state.doc.layer(a).unwrap().opacity, 1.0);
++    assert!(s.redo());
++    let state = s.active().unwrap();
++    assert_eq!(state.active_layer, Some(b), "redo restores the final coalesced target");
++    assert_eq!(state.doc.layer(a).unwrap().opacity, 0.8);
++}
++
++#[test]
++fn failed_edits_do_not_change_the_history_target() {
++    let mut s = session_with_doc();
++    let a = LayerId(s.execute("layer.new.layer", json!({})).unwrap()["layer"].as_u64().unwrap());
++    let b = LayerId(s.execute("layer.new.layer", json!({})).unwrap()["layer"].as_u64().unwrap());
++    s.execute("layer.select", json!({"layer": a.0})).unwrap();
++    s.execute("layer.setProps", json!({"opacity": 0.5})).unwrap();
++    s.execute("layer.select", json!({"layer": b.0})).unwrap();
++    let steps = s.active().unwrap().history.past_len();
++    assert!(s.execute("layer.setProps", json!({"blend": "not-a-blend"})).is_err());
++    assert_eq!(s.active().unwrap().history.past_len(), steps);
++    assert!(s.undo());
++    assert_eq!(s.active().unwrap().active_layer, Some(a));
++    assert!(s.redo());
++    assert_eq!(s.active().unwrap().active_layer, Some(a));
++}
++
+ #[test]
+ fn selection_modes() {
+     let mut s = session_with_doc();
+diff --git a/crates/ops/src/lib.rs b/crates/ops/src/lib.rs
+index c3f494f..440bf7d 100644
+--- a/crates/ops/src/lib.rs
++++ b/crates/ops/src/lib.rs
+@@ -15,9 +15,9 @@ use std::sync::Arc;
+ 
+ use photocraft_doc::{Document, LayerId};
+ 
+-/// The layers a state targeted when it was created: the active ("key") layer and every selected
+-/// layer. Undo and redo bring them back with the state's document, as the reference app does;
+-/// selecting layers is not a step of its own, so it doesn't change a state's target.
++/// The target associated with a document snapshot: its active ("key") layer and every selected
++/// layer. Selection alone remains view state; when a new edit begins, the engine captures the
++/// live target for the before-snapshot. Undo and redo restore that target with the document.
+ #[derive(Clone, Debug, Default, PartialEq, Eq)]
+ pub struct LayerTarget {
+     pub active: Option<LayerId>,
+@@ -28,7 +28,7 @@ pub struct LayerTarget {
+ pub struct HistoryState {
+     pub label: String,
+     pub doc: Arc<Document>,
+-    /// The layers targeted when this state was created.
++    /// The target captured for this snapshot when it was opened or before its next edit.
+     pub layers: LayerTarget,
+ }
+ 
+@@ -43,7 +43,7 @@ pub struct History {
+     pub max_bytes: usize,
+     /// Label of the step that produced the current document.
+     current_label: String,
+-    /// The layers targeted when the current document was created (opened or edited).
++    /// The target associated with the current document snapshot.
+     current_layers: LayerTarget,
+ }
+ 
+@@ -66,7 +66,7 @@ impl History {
+     }
+ 
+     /// Record that `before` was replaced by a new current document via step `label`, which left
+-    /// `layers` targeted.
++    /// `layers` targeted. The existing current target is stored with `before`.
+     pub fn record(&mut self, label: impl Into<String>, before: Arc<Document>, layers: LayerTarget) {
+         let prev_label = std::mem::replace(&mut self.current_label, label.into());
+         let prev_layers = std::mem::replace(&mut self.current_layers, layers);
+@@ -94,8 +94,9 @@ impl History {
+         self.redo.iter().rev().map(|s| s.label.as_str())
+     }
+ 
+-    /// Set the layers the current document targets from its creation on: when it is first
+-    /// opened, or when its step coalesces or changes the selection after recording.
++    /// Set the target associated with the current document. The engine sets this to the live
++    /// target at a new edit's transaction boundary, or to the post-edit target after a coalesced
++    /// edit. Changing selection alone does not call this method.
+     pub fn set_current_layers(&mut self, layers: LayerTarget) {
+         self.current_layers = layers;
+     }
+-- 
+2.52.0
+
