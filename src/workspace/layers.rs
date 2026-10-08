@@ -104,25 +104,25 @@ impl TabletUi {
             .session
             .active()
             .is_some_and(|st| st.doc.quick_mask.is_some());
-        if (selected_count > 1 || quick_mask) && self.arrange_layers {
+        if quick_mask && self.arrange_layers {
             self.arrange_layers = false;
             self.cancel_layer_arrange_drag();
         }
         ui.horizontal(|ui| {
             ui.strong("Layers");
             let arrange_label = if quick_mask {
-                "Arrange layers · exit Quick Mask first"
+                "Arrange layers · exit Quick Mask first".to_string()
             } else if selected_count > 1 {
-                "Arrange layers · select one layer"
+                format!("Arrange layers · move {selected_count} selected layers")
             } else {
-                "Arrange layers"
+                "Arrange layers".to_string()
             };
             let arrange = ui
-                .add_enabled_ui(selected_count <= 1 && !quick_mask, |ui| {
-                    navigation::icon_button(ui, "move", arrange_label, self.arrange_layers, 44.)
+                .add_enabled_ui(!quick_mask, |ui| {
+                    navigation::icon_button(ui, "move", &arrange_label, self.arrange_layers, 44.)
                 })
                 .inner
-                .on_hover_text(arrange_label);
+                .on_hover_text(&arrange_label);
             if arrange.clicked() {
                 self.arrange_layers = !self.arrange_layers;
                 self.cancel_layer_arrange_drag();
@@ -153,7 +153,8 @@ impl TabletUi {
         let doc = st.doc.clone();
         if self
             .layer_arrange_drag
-            .is_some_and(|(drag_doc, _)| drag_doc != doc.id.0)
+            .as_ref()
+            .is_some_and(|drag| drag.doc_id != doc.id.0)
         {
             self.cancel_layer_arrange_drag();
         }
@@ -261,20 +262,32 @@ impl TabletUi {
         if touch_cancelled {
             self.cancel_layer_arrange_drag();
         } else if ui.input(|i| i.pointer.any_released()) {
-            if let (Some((drag_doc, dragged)), Some((target, position))) =
-                (self.layer_arrange_drag, drop_target)
-                && drag_doc == doc.id.0
-                && dragged != target.0
+            if let (Some(drag), Some((target, position))) =
+                (self.layer_arrange_drag.clone(), drop_target)
+                && drag.doc_id == doc.id.0
+                && drag.source != target.0
             {
-                let preserve_target = active == Some(LayerId(dragged));
-                self.invoke(
-                    app,
-                    ui.ctx(),
-                    "layer.moveTo",
-                    json!({"layer":dragged,"target":target,"position":position}),
-                );
-                if self.message.is_empty() && !preserve_target {
-                    self.target_layer(app, ui.ctx(), LayerId(dragged), LayerTarget::Image);
+                if drag.layers.len() > 1 {
+                    self.invoke(
+                        app,
+                        ui.ctx(),
+                        "layer.moveTo",
+                        json!({"layers":drag.layers,"target":target,"position":position}),
+                    );
+                } else {
+                    let dragged = drag.source;
+                    let preserve_target = active == Some(LayerId(dragged));
+                    let revision = app.session.active().map(|st| st.revision);
+                    self.invoke(
+                        app,
+                        ui.ctx(),
+                        "layer.moveTo",
+                        json!({"layer":dragged,"target":target,"position":position}),
+                    );
+                    let changed = app.session.active().map(|st| st.revision) != revision;
+                    if self.message.is_empty() && changed && !preserve_target {
+                        self.target_layer(app, ui.ctx(), LayerId(dragged), LayerTarget::Image);
+                    }
                 }
             }
             self.cancel_layer_arrange_drag();
@@ -410,9 +423,23 @@ impl TabletUi {
                                 )
                             });
                             let started = grip.drag_started();
-                            let _ = grip.on_hover_text(format!("Reorder: {}", layer.name));
+                            let selected_drag = selected.contains(&layer.id);
+                            let tooltip = if selected_drag && selected.len() > 1 {
+                                format!("Move {} selected layers", selected.len())
+                            } else {
+                                format!("Reorder: {}", layer.name)
+                            };
+                            let _ = grip.on_hover_text(tooltip);
                             if started {
-                                self.layer_arrange_drag = Some((doc.id.0, layer.id.0));
+                                self.layer_arrange_drag = Some(LayerArrangeDrag {
+                                    doc_id: doc.id.0,
+                                    source: layer.id.0,
+                                    layers: if selected_drag {
+                                        selected.iter().map(|id| id.0).collect()
+                                    } else {
+                                        vec![layer.id.0]
+                                    },
+                                });
                             }
                         }
                         if navigation::icon_button(
@@ -532,9 +559,10 @@ impl TabletUi {
                 });
             let rect = row.response.rect;
             if self.arrange_layers
-                && let Some((drag_doc, dragged)) = self.layer_arrange_drag
-                && drag_doc == doc.id.0
-                && dragged != layer.id.0
+                && let Some(drag) = self.layer_arrange_drag.as_ref()
+                && drag.doc_id == doc.id.0
+                && drag.source != layer.id.0
+                && !drag.layers.contains(&layer.id.0)
                 && let Some(pointer) = ui.input(|i| i.pointer.interact_pos())
                 && rect.intersect(ui.clip_rect()).contains(pointer)
             {
@@ -907,6 +935,15 @@ mod tests {
     }
 
     fn arrange_harness(app: PhotocraftApp) -> Harness<'static, (PhotocraftApp, TabletUi)> {
+        let selected_count = app
+            .session
+            .active()
+            .map_or(0, |st| st.selected_layers().len());
+        let arrange_label = if selected_count > 1 {
+            format!("Arrange layers · move {selected_count} selected layers")
+        } else {
+            "Arrange layers".to_string()
+        };
         let mut h = Harness::builder()
             .with_size(vec2(1194., 834.))
             .build_ui_state(
@@ -914,7 +951,7 @@ mod tests {
                 (app, TabletUi::default()),
             );
         h.run_steps(3);
-        h.get_by_label("Arrange layers").click();
+        h.get_by_label(&arrange_label).click();
         h.run_steps(3);
         h
     }
@@ -1134,7 +1171,7 @@ mod tests {
     }
 
     #[test]
-    fn arrange_rejects_multiselection_without_moving_or_changing_selection() {
+    fn arrange_is_available_for_multiselection_without_changing_selection() {
         let mut app = fixture(false, 0);
         app.run("layer.setProps", json!({"name":"A"})).unwrap();
         let a = app.session.active().unwrap().active_layer.unwrap();
@@ -1153,15 +1190,16 @@ mod tests {
                 (app, TabletUi::default()),
             );
         h.run_steps(3);
-        h.get_by_label("Arrange layers · select one layer").click();
+        h.get_by_label("Arrange layers · move 2 selected layers")
+            .click();
         h.run_steps(3);
-        assert!(!h.state().1.arrange_layers);
+        assert!(h.state().1.arrange_layers);
         assert_eq!(h.state().0.session.active().unwrap().doc, before);
         assert_eq!(
             h.state().0.session.active().unwrap().selected_layers(),
             selected
         );
-        assert!(h.query_by_label("Reorder: A").is_none());
+        assert!(h.query_by_label("Reorder: A").is_some());
     }
 
     #[test]
@@ -1351,13 +1389,21 @@ mod tests {
         let layer = app.session.active().unwrap().active_layer.unwrap().0;
         let mut h = arrange_harness(app);
 
-        h.state_mut().1.layer_arrange_drag = Some((doc, layer));
+        h.state_mut().1.layer_arrange_drag = Some(LayerArrangeDrag {
+            doc_id: doc,
+            source: layer,
+            layers: vec![layer],
+        });
         h.state_mut().1.inspector_open = false;
         h.run_steps(1);
         assert!(h.state().1.layer_arrange_drag.is_none());
 
         h.state_mut().1.inspector_open = true;
-        h.state_mut().1.layer_arrange_drag = Some((doc, layer));
+        h.state_mut().1.layer_arrange_drag = Some(LayerArrangeDrag {
+            doc_id: doc,
+            source: layer,
+            layers: vec![layer],
+        });
         h.state_mut().1.mask_controls = Some(LayerTarget::Mask);
         h.run_steps(1);
         assert!(h.state().1.layer_arrange_drag.is_none());
@@ -1382,6 +1428,199 @@ mod tests {
         assert_eq!(st.selected_layers(), vec![b]);
         assert!(!h.state().0.ui.mask_target);
         assert!(!h.state().0.ui.vector_mask_target);
+    }
+
+    #[test]
+    fn arranging_selected_roots_moves_together_and_undo_preserves_active_mask_target() {
+        let mut app = fixture(false, 0);
+        app.run("layer.setProps", json!({"name":"A"})).unwrap();
+        let a = app.session.active().unwrap().active_layer.unwrap();
+        app.run("layer.new.layer", json!({"name":"B"})).unwrap();
+        app.run("layer.new.layer", json!({"name":"C"})).unwrap();
+        let c = app.session.active().unwrap().active_layer.unwrap();
+        app.run("layer.layerMask.revealAll", json!({})).unwrap();
+        app.run("layer.select", json!({"layer":a.0,"mode":"replace"}))
+            .unwrap();
+        app.run("layer.select", json!({"layer":c.0,"mode":"add"}))
+            .unwrap();
+        app.ui.mask_target = true;
+        let before = app.session.active().unwrap().doc.clone();
+        let selected = app.session.active().unwrap().selected_layers();
+        let steps = app.session.active().unwrap().history.past_len();
+        let mut h = arrange_harness(app);
+
+        let source = h.get_by_label("Reorder: A").rect().center();
+        let target = h.get_by_label("Select layer: B").rect();
+        h.hover_at(source);
+        h.drag_at(source);
+        h.run_steps(1);
+        let drop = egui::pos2(target.center().x, target.bottom() - 4.);
+        h.hover_at(drop);
+        h.run_steps(1);
+        let drag = h.state().1.layer_arrange_drag.as_ref().unwrap();
+        assert_eq!(drag.layers, vec![a.0, c.0]);
+        h.drop_at(drop);
+        h.run_steps(3);
+
+        let st = h.state().0.session.active().unwrap();
+        let order = st
+            .doc
+            .layers
+            .iter()
+            .map(|layer| layer.name.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(order, ["A", "C", "B"]);
+        assert_eq!(st.active_layer, Some(c));
+        assert_eq!(st.selected_layers(), selected);
+        assert_eq!(st.history.past_len(), steps + 1);
+        assert!(h.state().0.ui.mask_target);
+        assert!(!h.state().0.ui.vector_mask_target);
+
+        h.state_mut().0.run("edit.undo", json!({})).unwrap();
+        let st = h.state().0.session.active().unwrap();
+        assert_eq!(st.doc, before);
+        assert_eq!(st.active_layer, Some(c));
+        assert_eq!(st.selected_layers(), selected);
+        assert!(h.state().0.ui.mask_target);
+    }
+
+    #[test]
+    fn cancelling_a_selected_set_drag_preserves_selection_and_history() {
+        let mut app = fixture(false, 0);
+        app.run("layer.setProps", json!({"name":"A"})).unwrap();
+        let a = app.session.active().unwrap().active_layer.unwrap();
+        app.run("layer.new.layer", json!({"name":"B"})).unwrap();
+        let b = app.session.active().unwrap().active_layer.unwrap();
+        app.run("layer.new.layer", json!({"name":"C"})).unwrap();
+        app.run("layer.select", json!({"layer":a.0,"mode":"replace"}))
+            .unwrap();
+        app.run("layer.select", json!({"layer":b.0,"mode":"add"}))
+            .unwrap();
+        let before = app.session.active().unwrap().doc.clone();
+        let selected = app.session.active().unwrap().selected_layers();
+        let steps = app.session.active().unwrap().history.past_len();
+        let mut h = arrange_harness(app);
+
+        let grip = h.get_by_label("Reorder: A").rect().center();
+        h.hover_at(grip);
+        h.drag_at(grip);
+        h.run_steps(1);
+        assert_eq!(
+            h.state().1.layer_arrange_drag.as_ref().unwrap().layers,
+            vec![a.0, b.0]
+        );
+        let outside = egui::pos2(980., 420.);
+        h.hover_at(outside);
+        h.run_steps(1);
+        h.drop_at(outside);
+        h.run_steps(3);
+
+        let st = h.state().0.session.active().unwrap();
+        assert_eq!(st.doc, before);
+        assert_eq!(st.history.past_len(), steps);
+        assert_eq!(st.active_layer, Some(b));
+        assert_eq!(st.selected_layers(), selected);
+        assert!(h.state().1.message.is_empty());
+    }
+
+    #[test]
+    fn unselected_grip_moves_one_layer_and_noop_does_not_retarget_selection() {
+        let mut app = fixture(false, 0);
+        app.run("layer.setProps", json!({"name":"A"})).unwrap();
+        let a = app.session.active().unwrap().active_layer.unwrap();
+        app.run("layer.new.layer", json!({"name":"B"})).unwrap();
+        app.run("layer.new.layer", json!({"name":"C"})).unwrap();
+        let c = app.session.active().unwrap().active_layer.unwrap();
+        app.run("layer.new.layer", json!({"name":"D"})).unwrap();
+        let d = app.session.active().unwrap().active_layer.unwrap();
+        app.run("layer.select", json!({"layer":a.0,"mode":"replace"}))
+            .unwrap();
+        app.run("layer.select", json!({"layer":d.0,"mode":"add"}))
+            .unwrap();
+        let before = app.session.active().unwrap().doc.clone();
+        let selected = app.session.active().unwrap().selected_layers();
+        let steps = app.session.active().unwrap().history.past_len();
+        let mut h = arrange_harness(app);
+
+        let grip = h.get_by_label("Reorder: C").rect().center();
+        let target = h.get_by_label("Select layer: B").rect();
+        h.hover_at(grip);
+        h.drag_at(grip);
+        h.run_steps(1);
+        assert_eq!(
+            h.state().1.layer_arrange_drag.as_ref().unwrap().layers,
+            vec![c.0]
+        );
+        let already_in_place = egui::pos2(target.center().x, target.top() + 3.);
+        h.hover_at(already_in_place);
+        h.run_steps(1);
+        h.drop_at(already_in_place);
+        h.run_steps(3);
+        let st = h.state().0.session.active().unwrap();
+        assert_eq!(st.doc, before);
+        assert_eq!(st.history.past_len(), steps);
+        assert_eq!(st.active_layer, Some(d));
+        assert_eq!(st.selected_layers(), selected);
+
+        let grip = h.get_by_label("Reorder: C").rect().center();
+        let target = h.get_by_label("Select layer: A").rect();
+        h.hover_at(grip);
+        h.drag_at(grip);
+        h.run_steps(1);
+        let move_to = egui::pos2(target.center().x, target.top() + 3.);
+        h.hover_at(move_to);
+        h.run_steps(1);
+        h.drop_at(move_to);
+        h.run_steps(3);
+        let st = h.state().0.session.active().unwrap();
+        assert_eq!(st.active_layer, Some(c));
+        assert_eq!(st.selected_layers(), vec![c]);
+        assert_eq!(st.history.past_len(), steps + 1);
+        let order = st
+            .doc
+            .layers
+            .iter()
+            .map(|layer| layer.name.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(order, ["A", "C", "B", "D"]);
+    }
+
+    #[test]
+    fn selected_group_drag_to_its_child_errors_without_changing_selection() {
+        let mut app = fixture(false, 0);
+        app.run("layer.new.group", json!({"name":"Group"})).unwrap();
+        let group = app.session.active().unwrap().active_layer.unwrap();
+        app.run("layer.new.layer", json!({"name":"Child"})).unwrap();
+        let child = app.session.active().unwrap().active_layer.unwrap();
+        app.run(
+            "layer.moveTo",
+            json!({"layer":child.0,"target":group.0,"position":"into"}),
+        )
+        .unwrap();
+        app.run(
+            "layer.setExpanded",
+            json!({"layer":group.0,"expanded":true}),
+        )
+        .unwrap();
+        app.run("layer.new.layer", json!({"name":"Other"})).unwrap();
+        let other = app.session.active().unwrap().active_layer.unwrap();
+        app.run("layer.select", json!({"layer":group.0,"mode":"replace"}))
+            .unwrap();
+        app.run("layer.select", json!({"layer":other.0,"mode":"add"}))
+            .unwrap();
+        let before = app.session.active().unwrap().doc.clone();
+        let selected = app.session.active().unwrap().selected_layers();
+        let steps = app.session.active().unwrap().history.past_len();
+        let mut h = arrange_harness(app);
+
+        drag_to(&mut h, "Group", "Child");
+
+        let st = h.state().0.session.active().unwrap();
+        assert!(!h.state().1.message.is_empty());
+        assert_eq!(st.doc, before);
+        assert_eq!(st.history.past_len(), steps);
+        assert_eq!(st.active_layer, Some(other));
+        assert_eq!(st.selected_layers(), selected);
     }
 
     #[test]

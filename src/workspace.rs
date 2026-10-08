@@ -46,7 +46,7 @@ pub struct TabletUi {
     command_path: Vec<String>,
     multi_select: bool,
     arrange_layers: bool,
-    layer_arrange_drag: Option<(u64, u64)>,
+    layer_arrange_drag: Option<LayerArrangeDrag>,
     layer_autoscroll_at: Option<f64>,
     mask_controls: Option<layers::LayerTarget>,
     mask_actions_open: bool,
@@ -66,6 +66,13 @@ pub struct TabletUi {
     pub clone_source_pick: bool,
     clone_source_contact: bool,
     hardware_modifiers: egui::Modifiers,
+}
+
+#[derive(Clone, Debug)]
+struct LayerArrangeDrag {
+    doc_id: u64,
+    source: u64,
+    layers: Vec<u64>,
 }
 impl Default for TabletUi {
     fn default() -> Self {
