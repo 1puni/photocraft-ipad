@@ -23,9 +23,9 @@ impl photocraft_web::web::BrowserWorkspace for BrowserWorkspace {
         &mut self,
         canvas: &web_sys::HtmlCanvasElement,
         ctx: &egui::Context,
-        _app: &mut photocraft_ui_egui::PhotocraftApp,
+        app: &mut photocraft_ui_egui::PhotocraftApp,
     ) {
-        input_web::install(canvas, ctx, self.contacts.clone());
+        input_web::install(canvas, ctx, self.contacts.clone(), app.stylus.feed.clone());
     }
 
     fn raw_input(&mut self, raw: &mut egui::RawInput) {
