@@ -341,6 +341,35 @@ impl TabletUi {
             }
         }
         self.tool_rail(app, ui);
+        if app.session.active().is_none() {
+            egui::Panel::top("ipad-welcome-attribution")
+                .frame(Frame::NONE.fill(t.canvas).inner_margin(8))
+                .show(ui, |ui| {
+                    ui.vertical_centered(|ui| {
+                        let source = "https://github.com/1puni/photocraft-ipad";
+                        if ui
+                            .add(
+                                Button::new(
+                                    egui::RichText::new("iPad workspace by 1puni")
+                                        .strong()
+                                        .color(t.accent),
+                                )
+                                .frame(false)
+                                .min_size(vec2(44., 44.)),
+                            )
+                            .on_hover_text(source)
+                            .clicked()
+                        {
+                            photocraft_ui_egui::links::open(app, ui.ctx(), source);
+                        }
+                        ui.label(
+                            egui::RichText::new("Built on PhotoCraft")
+                                .small()
+                                .color(t.text_dim),
+                        );
+                    });
+                });
+        }
         self.sheets(app, &ctx);
         self.command_tray(app, ui);
     }
