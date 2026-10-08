@@ -11,6 +11,16 @@ pub(super) enum LayerTarget {
 }
 
 impl TabletUi {
+    pub(super) fn open_layer_properties(&mut self) {
+        self.sheet = None;
+        self.command_tray_open = false;
+        self.layer_properties = true;
+        self.mask_controls = None;
+        self.cancel_layer_arrange_drag();
+        self.inspector = Inspector::Layers;
+        self.inspector_open = true;
+    }
+
     pub(super) fn cancel_layer_arrange_drag(&mut self) {
         self.layer_arrange_drag = None;
         self.layer_autoscroll_at = None;
@@ -52,14 +62,20 @@ impl TabletUi {
                 return;
             }
         }
-        self.invoke(
-            app,
-            ctx,
-            "layer.select",
-            json!({"layer":id.0,"mode":"replace"}),
-        );
-        if !self.message.is_empty() {
-            return;
+        if app
+            .session
+            .active()
+            .is_none_or(|st| st.active_layer != Some(id))
+        {
+            self.invoke(
+                app,
+                ctx,
+                "layer.select",
+                json!({"layer":id.0,"mode":"replace"}),
+            );
+            if !self.message.is_empty() {
+                return;
+            }
         }
         self.invoke(app, ctx, "channel.target", json!({"channel":"composite"}));
         if !self.message.is_empty() {
@@ -92,6 +108,12 @@ impl TabletUi {
         if self.mask_controls.is_some() {
             self.cancel_layer_arrange_drag();
             if self.mask_controls_panel(app, ui) {
+                return;
+            }
+        }
+        if self.layer_properties {
+            self.cancel_layer_arrange_drag();
+            if self.layer_properties_panel(app, ui) {
                 return;
             }
         }
@@ -357,7 +379,7 @@ impl TabletUi {
             if navigation::icon_button(ui, "ellipsis", "Layer properties and actions", false, 44.)
                 .clicked()
             {
-                self.open_sheet(Sheet::LayerProperties);
+                self.open_layer_properties();
             }
             if !spacious {
                 ui.label(egui::RichText::new(caption).small());
@@ -654,24 +676,84 @@ impl TabletUi {
         });
     }
 
-    pub(super) fn layer_properties(&mut self, app: &mut PhotocraftApp, ui: &mut Ui) {
+    pub(super) fn layer_properties_panel(&mut self, app: &mut PhotocraftApp, ui: &mut Ui) -> bool {
         let Some(st) = app.session.active() else {
-            ui.label("No document open.");
-            return;
+            self.layer_properties = false;
+            return false;
         };
         let doc = st.doc.clone();
         let Some(layer) = st.active_layer.and_then(|id| doc.layer(id)) else {
-            ui.label("Select a layer.");
-            return;
+            self.layer_properties = false;
+            return false;
         };
-        ui.strong(format!("{} · {}", layer.name, layer.content.kind_name()));
+        let selected_count = st.selected_layers().len();
+        let paint_target = canvas::paint_target(app);
+        let paint_caption = if paint_target == json!("quickMask") {
+            "Quick Mask".to_string()
+        } else if paint_target.get("channel").is_some() {
+            "Alpha channel".to_string()
+        } else if app.ui.vector_mask_target {
+            "Vector path · brushes paint image".to_string()
+        } else if paint_target == json!("mask") {
+            "Paint: pixel mask".to_string()
+        } else {
+            "Paint: layer image".to_string()
+        };
+        let mut scope = format!("{} · {paint_caption}", layer.content.kind_name());
+        if selected_count > 1 {
+            scope.push_str(&format!(
+                " · editing active layer · {selected_count} selected"
+            ));
+        }
+        ui.horizontal(|ui| {
+            let back = button(ui, "Back", false);
+            back.widget_info(|| {
+                egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "Back to layers")
+            });
+            if back.clicked() {
+                self.layer_properties = false;
+            }
+            let header = ui
+                .add(egui::Label::new(&layer.name).truncate())
+                .on_hover_text(&layer.name);
+            header.widget_info(|| {
+                egui::WidgetInfo::labeled(
+                    egui::WidgetType::Label,
+                    true,
+                    format!("{} · {}", layer.name, layer.content.kind_name()),
+                )
+            });
+        });
+        ui.label(egui::RichText::new(scope).small());
+        ui.separator();
+        let body_height = ui.available_height().max(1.);
+        egui::ScrollArea::vertical()
+            .id_salt(("ipad-layer-properties", doc.id.0, layer.id.0))
+            .scroll_source(egui::scroll_area::ScrollSource::ALL)
+            .max_height(body_height)
+            .min_scrolled_height(body_height)
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                self.layer_properties_body(app, ui, &doc, layer, selected_count)
+            });
+        true
+    }
+
+    fn layer_properties_body(
+        &mut self,
+        app: &mut PhotocraftApp,
+        ui: &mut Ui,
+        doc: &Document,
+        layer: &Layer,
+        selected_count: usize,
+    ) {
         let key = (doc.id.0, layer.id.0);
         if self.rename_layer != Some(key) || self.layer_name_source != layer.name {
             self.rename_layer = Some(key);
             self.layer_name = layer.name.clone();
             self.layer_name_source = layer.name.clone();
         }
-        let background = photocraft_ui_egui::doc_props_ui::is_background(&doc, layer);
+        let background = photocraft_ui_egui::doc_props_ui::is_background(doc, layer);
         if background {
             self.command(
                 app,
@@ -680,12 +762,15 @@ impl TabletUi {
                 "layer.new.layerFromBackground",
             );
         }
+        ui.strong("Active layer properties");
         ui.add_enabled_ui(!background, |ui| {
             ui.horizontal(|ui| {
-                ui.add_sized(
-                    [ui.available_width() - 100., 44.],
-                    egui::TextEdit::singleline(&mut self.layer_name),
+                let label = ui.label("Layer name");
+                let field = ui.add_sized(
+                    [ui.available_width() - 84., 44.],
+                    egui::TextEdit::singleline(&mut self.layer_name).hint_text("Layer name"),
                 );
+                field.labelled_by(label.id);
                 if button(ui, "Rename", false).clicked() {
                     self.invoke(
                         app,
@@ -696,44 +781,89 @@ impl TabletUi {
                 }
             });
         });
-        self.layer_blending(app, ui, &doc, layer);
-        self.selection_actions(app, ui);
-        ui.horizontal_wrapped(|ui| {
-            for (label, key, value) in [
-                ("Lock layer", "all", layer.locks.all),
+        self.layer_properties_blending(app, ui, doc, layer, background);
+        if ui
+            .add_sized(
+                [ui.available_width(), 44.],
+                Button::new(if layer.visible {
+                    "Visibility · Visible"
+                } else {
+                    "Visibility · Hidden"
+                })
+                .selected(layer.visible),
+            )
+            .on_hover_text("Toggle active layer visibility")
+            .clicked()
+        {
+            self.invoke(
+                app,
+                ui.ctx(),
+                "layer.setProps",
+                json!({"layer":layer.id.0,"visible":!layer.visible}),
+            );
+        }
+        ui.label("Lock");
+        let width = (ui.available_width() - 6.) / 2.;
+        for row in [
+            [
+                ("All", "Lock layer", "all", layer.locks.all),
+                ("Pixels", "Lock pixels", "pixels", layer.locks.pixels),
+            ],
+            [
                 (
+                    "Position",
+                    "Lock position",
+                    "position",
+                    layer.locks.position,
+                ),
+                (
+                    "Transparency",
                     "Lock transparency",
                     "transparency",
                     layer.locks.transparency,
                 ),
-            ] {
-                if ui
-                    .add_enabled(
+            ],
+        ] {
+            ui.horizontal(|ui| {
+                for (short, accessible, key, value) in row {
+                    let response = ui.add_enabled(
                         !background,
-                        Button::new(label).selected(value).min_size(vec2(44., 44.)),
-                    )
-                    .clicked()
-                {
-                    self.invoke(
-                        app,
-                        ui.ctx(),
-                        "layer.setProps",
-                        json!({"layer":layer.id.0,"locks":{key:!value}}),
+                        Button::new(short)
+                            .selected(value)
+                            .min_size(vec2(width, 44.)),
                     );
+                    response.widget_info(|| {
+                        egui::WidgetInfo::selected(
+                            egui::WidgetType::Button,
+                            !background,
+                            value,
+                            accessible,
+                        )
+                    });
+                    if response.clicked() {
+                        self.invoke(
+                            app,
+                            ui.ctx(),
+                            "layer.setProps",
+                            json!({"layer":layer.id.0,"locks":{key:!value}}),
+                        );
+                    }
                 }
-            }
-        });
+            });
+        }
+        ui.separator();
+        ui.strong("Pixel selection · active layer");
+        self.selection_actions(app, ui);
         if doc.quick_mask.is_some() {
             self.command(app, ui, "Exit Quick Mask", "select.editInQuickMaskMode");
         }
         ui.separator();
+        ui.strong("Active layer actions");
         ui.horizontal_wrapped(|ui| {
             for (label, id) in [
                 ("Effects…", "layer.layerStyle.blendingOptions"),
-                ("Duplicate", "layer.duplicate"),
                 ("Move up", "layer.arrange.bringForward"),
                 ("Move down", "layer.arrange.sendBackward"),
-                ("Delete", "layer.delete"),
             ] {
                 if ui
                     .add_enabled(
@@ -743,7 +873,6 @@ impl TabletUi {
                     .clicked()
                 {
                     self.invoke(app, ui.ctx(), id, json!({}));
-                    self.sheet = None;
                 }
             }
             if matches!(
@@ -759,8 +888,44 @@ impl TabletUi {
                     .clicked()
                 {
                     self.invoke(app, ui.ctx(), id, json!({}));
-                    self.sheet = None;
                 }
+            }
+        });
+        ui.separator();
+        let selected_actions = if selected_count > 1 {
+            format!("Selected layers · {selected_count}")
+        } else {
+            "Selected layer".to_string()
+        };
+        ui.strong(selected_actions);
+        ui.horizontal_wrapped(|ui| {
+            let duplicate = if selected_count > 1 {
+                format!("Duplicate {selected_count} layers")
+            } else {
+                "Duplicate".to_string()
+            };
+            if ui
+                .add_enabled(
+                    menus::is_enabled(app, "layer.duplicate"),
+                    Button::new(duplicate).min_size(vec2(100., 44.)),
+                )
+                .clicked()
+            {
+                self.invoke(app, ui.ctx(), "layer.duplicate", json!({}));
+            }
+            let delete = if selected_count > 1 {
+                format!("Delete {selected_count} layers")
+            } else {
+                "Delete".to_string()
+            };
+            if ui
+                .add_enabled(
+                    menus::is_enabled(app, "layer.delete"),
+                    Button::new(delete).min_size(vec2(100., 44.)),
+                )
+                .clicked()
+            {
+                self.invoke(app, ui.ctx(), "layer.delete", json!({}));
             }
         });
         if layer.mask.is_some() || layer.vector_mask.is_some() {
@@ -774,13 +939,60 @@ impl TabletUi {
                     LayerTarget::Mask
                 };
                 self.open_mask_controls(app, ui.ctx(), layer.id, target);
-                self.sheet = None;
             }
         }
         if full_button(ui, "All layer commands…", false).clicked() {
             self.open_sheet(Sheet::Commands);
             self.command_path = vec!["Layer".into()];
         }
+    }
+
+    fn layer_properties_blending(
+        &mut self,
+        app: &mut PhotocraftApp,
+        ui: &mut Ui,
+        doc: &Document,
+        layer: &Layer,
+        background: bool,
+    ) {
+        ui.add_enabled_ui(!background, |ui| {
+            egui::ComboBox::from_id_salt(("ipad-layer-properties-blend", doc.id.0, layer.id.0))
+                .selected_text(format!("Blend · {}", layer.blend.label()))
+                .width(ui.available_width())
+                .show_ui(ui, |ui| {
+                    for mode in photocraft_color::BlendMode::LAYER_MODES {
+                        if full_button(ui, mode.label(), layer.blend == mode).clicked() {
+                            self.invoke(
+                                app,
+                                ui.ctx(),
+                                "layer.setProps",
+                                json!({"layer":layer.id.0,"blend":mode}),
+                            );
+                        }
+                    }
+            });
+            let mut opacity = layer.opacity * 100.;
+            ui.horizontal(|ui| {
+                let label = ui.label("Layer opacity");
+                ui.spacing_mut().slider_width = (ui.available_width() - 54.).max(44.);
+                if ui
+                    .add(egui::Slider::new(&mut opacity, 0.0..=100.).suffix("%"))
+                    .labelled_by(label.id)
+                    .on_hover_text("Layer opacity")
+                    .changed()
+                {
+                    self.invoke(
+                        app,
+                        ui.ctx(),
+                        "layer.setProps",
+                        json!({"layer":layer.id.0,"opacity":opacity/100.,"coalesce":format!("ipad-opacity:{}:{}:{}",doc.id.0,layer.id.0,self.edit_gesture)}),
+                    );
+                    if !ui.input(|i| i.pointer.any_down()) {
+                        self.edit_gesture = self.edit_gesture.wrapping_add(1);
+                    }
+                }
+            });
+        });
     }
 }
 
@@ -954,6 +1166,233 @@ mod tests {
         h.get_by_label(&arrange_label).click();
         h.run_steps(3);
         h
+    }
+
+    fn properties_harness(
+        app: PhotocraftApp,
+        size: egui::Vec2,
+    ) -> Harness<'static, (PhotocraftApp, TabletUi)> {
+        let mut h = Harness::builder().with_size(size).build_ui_state(
+            |ui, (app, w): &mut (PhotocraftApp, TabletUi)| w.show(app, ui),
+            (
+                app,
+                TabletUi {
+                    layer_properties: true,
+                    ..Default::default()
+                },
+            ),
+        );
+        h.run_steps(3);
+        h
+    }
+
+    #[test]
+    fn docked_properties_open_and_back_preserve_document_selection_and_paint_target() {
+        for (mask, vector, expected_caption) in [
+            (false, false, "Pixel · Paint: layer image"),
+            (true, false, "Pixel · Paint: pixel mask"),
+            (false, true, "Pixel · Vector path · brushes paint image"),
+        ] {
+            let mut app = fixture(false, 2);
+            app.ui.mask_target = mask;
+            app.ui.vector_mask_target = vector;
+            let st = app.session.active().unwrap();
+            let before_doc = st.doc.clone();
+            let before_active = st.active_layer;
+            let before_selected = st.selected_layers();
+            let before_history = st.history.past_len();
+            let mut h = properties_harness(app, vec2(507., 768.));
+
+            assert!(h.get_by_label("Back to layers").rect().height() >= 44.);
+            assert!(h.query_by_label(expected_caption).is_some());
+            assert_eq!(
+                h.state().0.session.active().unwrap().doc,
+                before_doc,
+                "opening properties edited the document"
+            );
+            h.get_by_label("Back to layers").click();
+            h.run_steps(3);
+
+            let st = h.state().0.session.active().unwrap();
+            assert!(!h.state().1.layer_properties);
+            assert_eq!(st.doc, before_doc);
+            assert_eq!(st.active_layer, before_active);
+            assert_eq!(st.selected_layers(), before_selected);
+            assert_eq!(st.history.past_len(), before_history);
+            assert_eq!(h.state().0.ui.mask_target, mask);
+            assert_eq!(h.state().0.ui.vector_mask_target, vector);
+        }
+    }
+
+    #[test]
+    fn docked_properties_keep_alpha_and_quick_mask_targets_unchanged() {
+        for (command, params, caption) in [
+            ("channel.new", json!({}), "Pixel · Alpha channel"),
+            (
+                "select.editInQuickMaskMode",
+                json!({"on":true}),
+                "Pixel · Quick Mask",
+            ),
+        ] {
+            let mut app = fixture(false, 0);
+            app.run(command, params).unwrap();
+            let st = app.session.active().unwrap();
+            let before_doc = st.doc.clone();
+            let before_history = st.history.past_len();
+            let before_active = st.active_layer;
+            let before_selected = st.selected_layers();
+            let before_target = canvas::paint_target(&app);
+            let before_mask_target = app.ui.mask_target;
+            let before_vector_target = app.ui.vector_mask_target;
+            let mut h = properties_harness(app, vec2(507., 768.));
+
+            assert!(h.query_by_label(caption).is_some());
+            assert_eq!(canvas::paint_target(&h.state().0), before_target);
+            h.get_by_label("Back to layers").click();
+            h.run_steps(3);
+
+            let st = h.state().0.session.active().unwrap();
+            assert_eq!(st.doc, before_doc);
+            assert_eq!(st.history.past_len(), before_history);
+            assert_eq!(st.active_layer, before_active);
+            assert_eq!(st.selected_layers(), before_selected);
+            assert_eq!(canvas::paint_target(&h.state().0), before_target);
+            assert_eq!(h.state().0.ui.mask_target, before_mask_target);
+            assert_eq!(h.state().0.ui.vector_mask_target, before_vector_target);
+        }
+    }
+
+    #[test]
+    fn docked_properties_rename_is_one_undoable_active_layer_edit() {
+        let app = fixture(false, 0);
+        let layer = app.session.active().unwrap().active_layer.unwrap();
+        let previous = app
+            .session
+            .active()
+            .unwrap()
+            .doc
+            .layer(layer)
+            .unwrap()
+            .name
+            .clone();
+        let before_steps = app.session.active().unwrap().history.past_len();
+        let mut h = properties_harness(app, vec2(1194., 834.));
+        h.state_mut().1.layer_name = "Renamed from properties".into();
+        h.run_steps(1);
+        h.get_by_label("Rename").click();
+        h.run_steps(3);
+
+        let st = h.state().0.session.active().unwrap();
+        assert_eq!(st.doc.layer(layer).unwrap().name, "Renamed from properties");
+        assert_eq!(st.history.past_len(), before_steps + 1);
+        h.state_mut().0.run("edit.undo", json!({})).unwrap();
+        assert_eq!(
+            h.state()
+                .0
+                .session
+                .active()
+                .unwrap()
+                .doc
+                .layer(layer)
+                .unwrap()
+                .name,
+            previous
+        );
+    }
+
+    #[test]
+    fn docked_opacity_drag_coalesces_into_one_undo_step() {
+        let app = fixture(false, 0);
+        let layer = app.session.active().unwrap().active_layer.unwrap();
+        let initial_opacity = app
+            .session
+            .active()
+            .unwrap()
+            .doc
+            .layer(layer)
+            .unwrap()
+            .opacity;
+        let before_steps = app.session.active().unwrap().history.past_len();
+        let mut h = properties_harness(app, vec2(1194., 834.));
+        {
+            let opacity = h.get_by_role_and_label(egui::accesskit::Role::Slider, "Layer opacity");
+            opacity.scroll_to_me();
+        }
+        h.run_steps(3);
+        let slider = h
+            .get_by_role_and_label(egui::accesskit::Role::Slider, "Layer opacity")
+            .rect();
+        let start = egui::pos2(slider.right() - 8., slider.center().y);
+        let end = egui::pos2(slider.left() + slider.width() * 0.45, slider.center().y);
+        h.hover_at(start);
+        h.run_steps(1);
+        h.drag_at(start);
+        h.run_steps(1);
+        h.hover_at(end);
+        h.run_steps(2);
+        h.drop_at(end);
+        h.run_steps(3);
+
+        let st = h.state().0.session.active().unwrap();
+        let changed_opacity = st.doc.layer(layer).unwrap().opacity;
+        assert_ne!(
+            changed_opacity, initial_opacity,
+            "slider drag did not change opacity"
+        );
+        assert_eq!(st.history.past_len(), before_steps + 1);
+        h.state_mut().0.run("edit.undo", json!({})).unwrap();
+        assert_eq!(
+            h.state()
+                .0
+                .session
+                .active()
+                .unwrap()
+                .doc
+                .layer(layer)
+                .unwrap()
+                .opacity,
+            initial_opacity
+        );
+    }
+
+    #[test]
+    fn portrait_properties_keep_navigation_pinned_and_common_controls_full_width() {
+        let app = many_layer_fixture(8);
+        let mut h = properties_harness(app, vec2(507., 768.));
+        let back_before = h.get_by_label("Back to layers").rect();
+        let visibility = h.get_by_label("Visibility · Visible").rect();
+        let lock = h.get_by_label("Lock layer").rect();
+        assert!(back_before.height() >= 44.);
+        assert!(visibility.height() >= 44.);
+        assert!(visibility.width() > lock.width() * 1.8);
+        assert!(visibility.left() >= 0. && visibility.right() <= 507.);
+
+        h.get_by_label("All layer commands…").scroll_to_me();
+        h.run_steps(3);
+        assert_eq!(h.get_by_label("Back to layers").rect(), back_before);
+    }
+
+    #[test]
+    fn background_properties_keep_visibility_available_while_other_properties_stay_locked() {
+        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), Default::default());
+        app.run("file.new", json!({"width":32,"height":32}))
+            .unwrap();
+        let background = app.session.active().unwrap().active_layer.unwrap();
+        let before_steps = app.session.active().unwrap().history.past_len();
+        let mut h = properties_harness(app, vec2(1194., 834.));
+
+        h.get_by_label("Rename").click();
+        h.get_by_label("Lock layer").click();
+        h.run_steps(2);
+        let st = h.state().0.session.active().unwrap();
+        assert_eq!(st.doc.layer(background).unwrap().name, "Background");
+        assert_eq!(st.history.past_len(), before_steps);
+
+        h.get_by_label("Visibility · Visible").click();
+        h.run_steps(3);
+        let st = h.state().0.session.active().unwrap();
+        assert!(!st.doc.layer(background).unwrap().visible);
+        assert_eq!(st.history.past_len(), before_steps + 1);
     }
 
     fn drag_to(h: &mut Harness<'static, (PhotocraftApp, TabletUi)>, source: &str, target: &str) {

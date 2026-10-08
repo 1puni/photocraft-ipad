@@ -416,7 +416,7 @@ fn layer_name_follows_unlock_and_undo_without_overwriting_typing() {
             (
                 app,
                 TabletUi {
-                    sheet: Some(Sheet::LayerProperties),
+                    layer_properties: true,
                     ..Default::default()
                 },
             ),
@@ -658,7 +658,11 @@ fn layer_stack_keeps_footer_reachable_and_visibility_does_not_select() {
         );
         h.get_by_label("Layer properties and actions").click();
         h.run_steps(3);
-        assert_eq!(h.state().1.sheet, Some(Sheet::LayerProperties));
+        assert!(h.state().1.layer_properties);
+        assert!(h.state().1.sheet.is_none());
+        h.get_by_label("Back to layers").click();
+        h.run_steps(3);
+        assert!(!h.state().1.layer_properties);
     }
     for icon in [
         "check",
@@ -810,7 +814,10 @@ fn window_commands_show_tablet_panels_instead_of_hidden_desktop_docks() {
         assert!(w.inspector_open);
     }
     w.invoke(&mut app, &ctx, "window.properties", json!({}));
-    assert_eq!(w.sheet, Some(Sheet::LayerProperties));
+    assert!(w.layer_properties);
+    assert!(w.sheet.is_none());
+    assert_eq!(w.inspector, Inspector::Layers);
+    assert!(w.inspector_open);
 }
 
 #[test]

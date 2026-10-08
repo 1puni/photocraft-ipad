@@ -9,7 +9,6 @@ impl TabletUi {
             Sheet::Brush => "Brush studio",
             Sheet::Channels => "Channels",
             Sheet::Paths => "Paths",
-            Sheet::LayerProperties => "Layer properties",
         };
         let width = (ctx.content_rect().width() - 40.).clamp(240., 640.);
         let modal = egui::Modal::new(egui::Id::new(("ipad-sheet", title))).show(ctx, |ui| {
@@ -29,7 +28,6 @@ impl TabletUi {
                     Sheet::Brush => self.brush_studio(app, ui),
                     Sheet::Channels => self.channels(app, ui),
                     Sheet::Paths => self.paths(app, ui),
-                    Sheet::LayerProperties => self.layer_properties(app, ui),
                     Sheet::Commands => { close |= self.command_browser(app, ui); }
                     Sheet::Files => {
                         ui.horizontal_wrapped(|ui| {

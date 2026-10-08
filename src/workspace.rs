@@ -29,7 +29,6 @@ pub enum Sheet {
     Brush,
     Channels,
     Paths,
-    LayerProperties,
 }
 
 pub struct TabletUi {
@@ -46,6 +45,7 @@ pub struct TabletUi {
     command_path: Vec<String>,
     multi_select: bool,
     arrange_layers: bool,
+    layer_properties: bool,
     layer_arrange_drag: Option<LayerArrangeDrag>,
     layer_autoscroll_at: Option<f64>,
     mask_controls: Option<layers::LayerTarget>,
@@ -90,6 +90,7 @@ impl Default for TabletUi {
             command_path: Vec::new(),
             multi_select: false,
             arrange_layers: false,
+            layer_properties: false,
             layer_arrange_drag: None,
             layer_autoscroll_at: None,
             mask_controls: None,
@@ -158,7 +159,7 @@ impl TabletUi {
             return;
         }
         if matches!(id, "window.properties" | "window.toggle.properties") {
-            self.open_sheet(Sheet::LayerProperties);
+            self.open_layer_properties();
             return;
         }
         self.message = match menus::invoke(app, ctx, id, params) {

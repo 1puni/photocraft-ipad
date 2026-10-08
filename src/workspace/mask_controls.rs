@@ -16,6 +16,7 @@ impl TabletUi {
         if self.message.is_empty() {
             self.multi_select = false;
             self.mask_controls = Some(target);
+            self.layer_properties = false;
             self.mask_actions_open = false;
             self.inspector = Inspector::Layers;
             self.inspector_open = true;
@@ -63,6 +64,7 @@ impl TabletUi {
             }
         };
         let view = mask_view_cmds::current(st).map(|v| v.mode);
+        let mut properties = false;
         ui.horizontal(|ui| {
             let back = button(ui, "Back", false);
             back.widget_info(|| {
@@ -71,8 +73,15 @@ impl TabletUi {
             if back.clicked() {
                 self.mask_controls = None;
             }
+            properties =
+                navigation::icon_button(ui, "sliders-horizontal", "Layer properties", false, 44.)
+                    .clicked();
             ui.add(egui::Label::new(egui::RichText::new(&layer.name).strong()).truncate());
         });
+        if properties {
+            self.open_layer_properties();
+            return true;
+        }
         let count =
             1 + usize::from(layer.mask.is_some()) + usize::from(layer.vector_mask.is_some());
         let width = (ui.available_width() - (count - 1) as f32 * 6.) / count as f32;
@@ -236,6 +245,55 @@ mod tests {
         h.run_steps(3);
         assert!(h.state().1.message.is_empty(), "{}", h.state().1.message);
         h
+    }
+
+    #[test]
+    fn properties_and_mask_controls_switch_without_changing_the_paint_target_or_document() {
+        let app = app();
+        let before = app.session.active().unwrap().doc.clone();
+        let before_history = app.session.active().unwrap().history.past_len();
+        let active = app.session.active().unwrap().active_layer;
+        let selected = app.session.active().unwrap().selected_layers();
+        let mut h = harness(app, vec2(507., 768.));
+        let target = photocraft_ui_egui::canvas::paint_target(&h.state().0);
+
+        h.get_by_label("Layer properties").click();
+        h.run_steps(3);
+        assert!(h.state().1.layer_properties);
+        assert!(h.state().1.mask_controls.is_none());
+        assert_eq!(
+            photocraft_ui_egui::canvas::paint_target(&h.state().0),
+            target
+        );
+        h.get_by_label("Back to layers").click();
+        h.run_steps(3);
+        assert_eq!(h.state().0.session.active().unwrap().doc, before);
+        assert_eq!(
+            h.state().0.session.active().unwrap().history.past_len(),
+            before_history
+        );
+        assert_eq!(h.state().0.session.active().unwrap().active_layer, active);
+        assert_eq!(
+            h.state().0.session.active().unwrap().selected_layers(),
+            selected
+        );
+
+        h.get_by_label("Mask controls").click();
+        h.run_steps(3);
+        assert!(h.state().1.mask_controls.is_some());
+        h.get_by_label("Layer properties").click();
+        h.run_steps(3);
+        assert!(h.state().1.layer_properties);
+        assert!(h.state().1.mask_controls.is_none());
+        assert_eq!(
+            photocraft_ui_egui::canvas::paint_target(&h.state().0),
+            target
+        );
+        assert_eq!(h.state().0.session.active().unwrap().doc, before);
+        assert_eq!(
+            h.state().0.session.active().unwrap().history.past_len(),
+            before_history
+        );
     }
 
     #[test]
