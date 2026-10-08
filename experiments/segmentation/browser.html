@@ -1,0 +1,20 @@
+<!doctype html><meta charset="utf-8"><title>Selection model comparison</title>
+<style>body{background:#202020;color:#eee;font:15px system-ui;max-width:1000px;margin:30px auto}pre{white-space:pre-wrap}button{padding:12px}</style>
+<h1>Selection model comparison</h1>
+<p>Local inference using public test images. The editor and its documents are untouched.</p>
+<button id="run">Run CPU/WASM comparison</button> <button id="gpu">Run WebGPU comparison</button>
+<pre id="log"></pre>
+<script>
+let worker;
+function run(provider) {
+  if(worker)worker.terminate();
+  worker=new Worker('/browser-worker.js');
+  worker.onmessage=({data})=>document.querySelector('#log').textContent+=JSON.stringify(data)+'\n';
+  worker.onerror=e=>document.querySelector('#log').textContent+=e.message+'\n';
+  const names=new URLSearchParams(location.search).get('names')?.split(',') || ['mobile','edge'];
+  worker.postMessage({provider,names});
+}
+document.querySelector('#run').onclick=()=>run('wasm');
+document.querySelector('#gpu').onclick=()=>run('webgpu');
+if(location.search.includes('auto'))run('wasm');
+</script>

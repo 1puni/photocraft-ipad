@@ -1,0 +1,72 @@
+{
+  "mobile/encoder.onnx": {
+    "url": "https://huggingface.co/Acly/MobileSAM/resolve/0d3b403339b4674a82493d5e97964dd78089ddc8/mobile_sam_image_encoder.onnx",
+    "bytes": 28157093,
+    "sha256": "580f5fb648ea1062c0aabc26217aed56921985f03f0cbbd852bba81d760cc749"
+  },
+  "mobile/decoder.onnx": {
+    "url": "https://huggingface.co/Acly/MobileSAM/resolve/0d3b403339b4674a82493d5e97964dd78089ddc8/sam_mask_decoder_multi.onnx",
+    "bytes": 16496559,
+    "sha256": "8976b90a87ba50a6a72217a5ff994f7d25ce16f2229fcc1ed259e1294c622ffe"
+  },
+  "edge/vision_encoder.onnx": {
+    "url": "https://huggingface.co/onnx-community/EdgeTAM-ONNX/resolve/9c77c7bff7fd0f3079585fa17af7f730ddc531ed/onnx/vision_encoder.onnx",
+    "bytes": 192225,
+    "sha256": "ed068218eba96760fe02d04ce899c449660ac813a088d80ed7f42c8bb01e7cec"
+  },
+  "edge/vision_encoder.onnx_data": {
+    "url": "https://huggingface.co/onnx-community/EdgeTAM-ONNX/resolve/9c77c7bff7fd0f3079585fa17af7f730ddc531ed/onnx/vision_encoder.onnx_data",
+    "bytes": 19532576,
+    "sha256": "21e75dba7077dfcb53e8c9a6e99977156f2240ff3f1f9cddc43d66aa1ecb528e"
+  },
+  "edge/prompt_encoder_mask_decoder.onnx": {
+    "url": "https://huggingface.co/onnx-community/EdgeTAM-ONNX/resolve/9c77c7bff7fd0f3079585fa17af7f730ddc531ed/onnx/prompt_encoder_mask_decoder.onnx",
+    "bytes": 213114,
+    "sha256": "d3668299ec3edf70fbb139ec642b54bf3d4be453fd1b688a6b5938e0856fe546"
+  },
+  "edge/prompt_encoder_mask_decoder.onnx_data": {
+    "url": "https://huggingface.co/onnx-community/EdgeTAM-ONNX/resolve/9c77c7bff7fd0f3079585fa17af7f730ddc531ed/onnx/prompt_encoder_mask_decoder.onnx_data",
+    "bytes": 20958208,
+    "sha256": "dfa2125e30d08d388732f20c18fb63ab0f0f590cd270eb307f0c2b65919d1be8"
+  },
+  "edge_quantized/vision_encoder_quantized.onnx": {
+    "url": "https://huggingface.co/onnx-community/EdgeTAM-ONNX/resolve/9c77c7bff7fd0f3079585fa17af7f730ddc531ed/onnx/vision_encoder_quantized.onnx",
+    "bytes": 347220,
+    "sha256": "f5f029d5d43311bbf5a9cd6bdc9a5bf5e90ae63236d217030cb69843d81a5cde"
+  },
+  "edge_quantized/vision_encoder_quantized.onnx_data": {
+    "url": "https://huggingface.co/onnx-community/EdgeTAM-ONNX/resolve/9c77c7bff7fd0f3079585fa17af7f730ddc531ed/onnx/vision_encoder_quantized.onnx_data",
+    "bytes": 4914560,
+    "sha256": "40e85aca5ba55077fe71644dcd9c8fd78f686a8533a0cf705f2106d0c6d9d3a2"
+  },
+  "edge_quantized/prompt_encoder_mask_decoder_quantized.onnx": {
+    "url": "https://huggingface.co/onnx-community/EdgeTAM-ONNX/resolve/9c77c7bff7fd0f3079585fa17af7f730ddc531ed/onnx/prompt_encoder_mask_decoder_quantized.onnx",
+    "bytes": 290415,
+    "sha256": "cc686b26a2b9ef32387a2b8dabd2f8425b4e948af2e117965cf676ad64854041"
+  },
+  "edge_quantized/prompt_encoder_mask_decoder_quantized.onnx_data": {
+    "url": "https://huggingface.co/onnx-community/EdgeTAM-ONNX/resolve/9c77c7bff7fd0f3079585fa17af7f730ddc531ed/onnx/prompt_encoder_mask_decoder_quantized.onnx_data",
+    "bytes": 8662016,
+    "sha256": "f10132c5f6fbdf2c4f7e9f0148ce8fde4b7d8887f6f512f58fe0b693a89d985f"
+  },
+  "edge_qdecoder/vision_encoder.onnx": {
+    "url": "https://huggingface.co/onnx-community/EdgeTAM-ONNX/resolve/9c77c7bff7fd0f3079585fa17af7f730ddc531ed/onnx/vision_encoder.onnx",
+    "bytes": 192225,
+    "sha256": "ed068218eba96760fe02d04ce899c449660ac813a088d80ed7f42c8bb01e7cec"
+  },
+  "edge_qdecoder/vision_encoder.onnx_data": {
+    "url": "https://huggingface.co/onnx-community/EdgeTAM-ONNX/resolve/9c77c7bff7fd0f3079585fa17af7f730ddc531ed/onnx/vision_encoder.onnx_data",
+    "bytes": 19532576,
+    "sha256": "21e75dba7077dfcb53e8c9a6e99977156f2240ff3f1f9cddc43d66aa1ecb528e"
+  },
+  "edge_qdecoder/prompt_encoder_mask_decoder_quantized.onnx": {
+    "url": "https://huggingface.co/onnx-community/EdgeTAM-ONNX/resolve/9c77c7bff7fd0f3079585fa17af7f730ddc531ed/onnx/prompt_encoder_mask_decoder_quantized.onnx",
+    "bytes": 290415,
+    "sha256": "cc686b26a2b9ef32387a2b8dabd2f8425b4e948af2e117965cf676ad64854041"
+  },
+  "edge_qdecoder/prompt_encoder_mask_decoder_quantized.onnx_data": {
+    "url": "https://huggingface.co/onnx-community/EdgeTAM-ONNX/resolve/9c77c7bff7fd0f3079585fa17af7f730ddc531ed/onnx/prompt_encoder_mask_decoder_quantized.onnx_data",
+    "bytes": 8662016,
+    "sha256": "f10132c5f6fbdf2c4f7e9f0148ce8fde4b7d8887f6f512f58fe0b693a89d985f"
+  }
+}
