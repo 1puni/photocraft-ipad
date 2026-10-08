@@ -317,3 +317,56 @@ were captured; only the existing SetTheme warning remains. This supersedes the
 Undo selection limitation recorded in the docked-properties batch. The preview
 is served on port 4876, previous review documents remain open, and physical
 Pencil acceptance remains separate.
+
+## Mask density and feather beside the canvas
+
+UI implementation `2d7c167` adds density (0–100%) and feather (0–1000 px) to
+the existing pixel/vector mask dock. Each has a 44-point slider and a separately
+labelled numeric field. Feather uses a logarithmic slider for precision near
+zero; direct numeric entry accepts fractional pixels. Values come from the
+current mask, disabled masks remain editable, and Back/target tabs stay pinned
+while the controls scroll. Gesture keys separate documents, layers, mask types
+and properties so each drag has its own Undo step.
+
+Patch/pin commit `fb12080` packages engine `9fe4e48` as patch eight. The new
+`layer.layerMask.edit` command uses the existing compositor and history path,
+validates finite ranges before editing, handles explicit or active targets, and
+skips no-op history entries. Vector controls reuse `layer.vectorMask.edit`.
+Applying all eight patches in a fresh local clone reproduced engine tree
+`0314c46e7585c5e313dded3b95ac2fd9bacd7e76`. The public baseline, first seven
+patches, dependencies and lockfile are unchanged.
+
+All 77 extension tests, formatting, native Clippy with warnings denied and Wasm
+check pass. Held-drag tests cover both controls on both mask types, one-step
+Undo, unchanged image/other-mask content and paint targets, disabled masks,
+fresh values when switching targets and portrait scrolling. A numeric-entry
+test types 12.5 px and verifies the stored value and one-step Undo. It caught an
+unlabelled built-in slider value field; separate labelled fields fix that
+accessibility gap.
+
+All 789 non-ignored engine unit tests, integration/doc targets, layering,
+workspace Wasm, command parity and the adversarial-command check pass. Six new
+engine tests cover validation, no-ops, coalescing, targeting, density/feather
+composition at 8/16/32-bit depth and a serialized PSD roundtrip (including PSD's
+byte quantization of density). Engine Clippy passes with the same two documented
+baseline lint categories allowed; it remains a qualified engine result.
+
+The optimized build with locked notices completed at 19:20 UTC. Chrome opened
+a synthetic 109,546-byte PSD with a sharp pixel-mask edge and an independent
+vector mask. Reducing each mask's density from 100% to 49% visibly revealed its
+hidden area; Undo restored full masking. Typing 40 px into each feather field
+softened its respective vertical/horizontal edge, and one Undo restored the
+sharp edge without switching the active layer or controls. Switching mask tabs
+showed their independent values.
+
+The portrait viewport override showed the bottom-dock breakpoint; it also
+changed rendering/input scale, so it is not physical target-size or Pencil
+scrolling evidence. Portrait pinned navigation and scrolling are covered by
+synthetic UI tests. The override was reset and the artwork fitted again.
+
+Chrome saved a 251,514-byte PSD and reopened it in a fresh tab. The pixel mask
+still read 100% density and 40 px feather, with its soft edge intact and the
+disabled vector mask retained. Both browser tabs logged no errors and only the
+existing SetTheme warning. The reopened review document remains available;
+previous review documents were preserved. Port 4876 serves this build. Physical
+Pencil acceptance remains open.
