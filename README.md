@@ -24,12 +24,6 @@ paths, colour and undo history. The brush studio exposes all 13 shared dynamics
 sections and a live stroke preview. New Document, Export and Layer Style have
 responsive touch layouts.
 
-**Find it, type it, say it.** The bottom command shelf uses PhotoCraft's live
-menu catalogue and all 49 tool names. An exact tool name switches tools; menu
-actions present labelled choices. Browser speech accepts one short English
-utterance, with typed search and keyboard dictation alongside it. Speech may use
-the browser provider's online service; PhotoCraft does not store audio.
-
 **One editor engine.** PhotoCraft's Rust engine, canvas, file services and command
 system do the editing. This crate supplies the workspace and input adapter through
 a small browser-host seam. Edits follow the same command and undo paths. We link

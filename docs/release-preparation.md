@@ -4,6 +4,13 @@ V approved the presentation and requested licensing review and release checks on
 8 October 2026. **The repository remains private until V authorizes the visibility
 switch.** The hosted demo and optional tips remain separate future decisions.
 
+**Publication hold — 8 October 2026:** V requested removing the permanent bottom
+command shelf and custom browser speech recognition. The replacement is on-demand
+top-bar command search using normal text input and native iPad keyboard dictation.
+The implementation session is preparing a verified correction; integrate and
+check that commit before considering the visibility switch. The earlier custom
+voice presentation is superseded.
+
 ## Checklist
 
 - [x] **Presentation and naming:** V reviewed the repository and asked us to proceed
@@ -28,6 +35,8 @@ switch.** The hosted demo and optional tips remain separate future decisions.
   kept separately in the test record. These are development work, not a reason
   to keep the source closed.
 - [ ] **Public visibility:** awaiting V's explicit go-ahead.
+- [ ] **Command-search correction:** await the verified implementation commit,
+  remove the shelf/recognition adapter, and update presentation and acceptance.
 
 ## Candidate and development handoff
 
