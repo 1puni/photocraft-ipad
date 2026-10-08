@@ -64,7 +64,11 @@ impl TabletUi {
         };
         let view = mask_view_cmds::current(st).map(|v| v.mode);
         ui.horizontal(|ui| {
-            if navigation::icon_button(ui, "chevron-left", "Back to layers", false, 44.).clicked() {
+            let back = button(ui, "Back", false);
+            back.widget_info(|| {
+                egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "Back to layers")
+            });
+            if back.clicked() {
                 self.mask_controls = None;
             }
             ui.add(egui::Label::new(egui::RichText::new(&layer.name).strong()).truncate());
@@ -384,6 +388,55 @@ mod tests {
                 .mask
                 .is_some()
         );
+    }
+
+    #[test]
+    fn applying_pixel_mask_changes_only_masked_pixels_and_undo_restores_both() {
+        let app = app();
+        let before = app.session.active().unwrap().doc.clone();
+        let mut h = harness(app, vec2(1194., 834.));
+        h.get_by_label("Mask actions…").click();
+        h.run_steps(3);
+        h.get_by_label("Apply mask to image").click();
+        h.run_steps(3);
+        assert!(h.state().1.message.is_empty(), "{}", h.state().1.message);
+        let layer = &h.state().0.session.active().unwrap().doc.layers[0];
+        assert!(layer.mask.is_none());
+        let pixels = layer.surface().unwrap();
+        assert!(pixels.sample_channel(4, 4, 3) < 0.01);
+        assert!(pixels.sample_channel(24, 4, 3) > 0.99);
+        assert!(h.state().1.mask_controls.is_none());
+        assert_eq!(
+            photocraft_ui_egui::canvas::paint_target(&h.state().0),
+            json!("pixels")
+        );
+        h.state_mut().0.run("edit.undo", json!({})).unwrap();
+        assert_eq!(h.state().0.session.active().unwrap().doc, before);
+    }
+
+    #[test]
+    fn converting_vector_mask_opens_pixel_controls_and_undo_restores_vector() {
+        let mut app = app();
+        app.run("layer.layerMask.delete", json!({})).unwrap();
+        app.run("layer.vectorMask.revealAll", json!({})).unwrap();
+        let before = app.session.active().unwrap().doc.clone();
+        let mut h = harness(app, vec2(1194., 834.));
+        h.get_by_label("Mask actions…").click();
+        h.run_steps(3);
+        h.get_by_label("Convert to pixel mask").click();
+        h.run_steps(3);
+        assert!(h.state().1.message.is_empty(), "{}", h.state().1.message);
+        let layer = &h.state().0.session.active().unwrap().doc.layers[0];
+        assert!(layer.vector_mask.is_none());
+        assert!(layer.mask.as_ref().unwrap().value(4, 4) > 0.99);
+        assert_eq!(layer.surface(), before.layers[0].surface());
+        assert!(h.query_by_label("Mask only").is_some());
+        assert_eq!(
+            photocraft_ui_egui::canvas::paint_target(&h.state().0),
+            json!("mask")
+        );
+        h.state_mut().0.run("edit.undo", json!({})).unwrap();
+        assert_eq!(h.state().0.session.active().unwrap().doc, before);
     }
 
     #[test]
