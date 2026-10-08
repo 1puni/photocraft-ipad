@@ -1,0 +1,6 @@
+public/editor/
+public/ipad/
+.cache/
+.runtime/
+__pycache__/
+target/
