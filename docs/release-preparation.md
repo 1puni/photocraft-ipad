@@ -14,15 +14,15 @@ and a standalone segmentation evaluation. Hosted demos remain a separate project
   shipped features, and superseded custom voice promotion removed.
 - [x] **Baseline verification:** fresh-clone setup/build, editor tests, native and
   Wasm lint, server boundaries and license packaging passed. [Test record](verification.md).
-- [ ] **Publication:** verify anonymous repository access and enable GitHub private
-  vulnerability reporting after the final candidate passes.
+- [x] **Publication:** opened on 8 October 2026 at revision `f08c26a`. Anonymous
+  GitHub API and README access verified; private vulnerability reporting enabled.
 
 ## Next public development batch
 
 The native-keyboard command-search correction is in progress on a topic branch:
 on-demand top-bar search will replace the permanent shelf and custom recognizer.
-The audited source snapshot is being opened first so subsequent development can
-happen in public. Uncommitted implementation work is excluded from this release.
+The audited source snapshot was opened first so subsequent development can
+happen in public. Uncommitted implementation work was excluded from this release.
 
 ## Development in the open
 
