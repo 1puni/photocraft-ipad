@@ -1,0 +1,801 @@
+[
+  {
+    "case": "astronaut",
+    "ms": 0.9552080000000001,
+    "variant": "wand"
+  },
+  {
+    "case": "astronaut",
+    "ms": 97.383375,
+    "variant": "quick"
+  },
+  {
+    "case": "astronaut",
+    "ms": 1918.813,
+    "variant": "object"
+  },
+  {
+    "case": "astronaut",
+    "ms": 765.919417,
+    "variant": "current_corrections"
+  },
+  {
+    "case": "astronaut",
+    "ms": 995.1035,
+    "variant": "remembered_corrections"
+  },
+  {
+    "case": "cat",
+    "ms": 1.169667,
+    "variant": "wand"
+  },
+  {
+    "case": "cat",
+    "ms": 577.870417,
+    "variant": "quick"
+  },
+  {
+    "case": "cat",
+    "ms": 28715.683875,
+    "variant": "object"
+  },
+  {
+    "case": "cat",
+    "ms": 1554.0674999999999,
+    "variant": "current_corrections"
+  },
+  {
+    "case": "cat",
+    "ms": 6575.399375,
+    "variant": "remembered_corrections"
+  },
+  {
+    "case": "coffee",
+    "ms": 12.194458000000001,
+    "variant": "wand"
+  },
+  {
+    "case": "coffee",
+    "ms": 53.880417,
+    "variant": "quick"
+  },
+  {
+    "case": "coffee",
+    "ms": 1731.034667,
+    "variant": "object"
+  },
+  {
+    "case": "coffee",
+    "ms": 758.744833,
+    "variant": "current_corrections"
+  },
+  {
+    "case": "coffee",
+    "ms": 179.77212500000002,
+    "variant": "remembered_corrections"
+  },
+  {
+    "case": "colour",
+    "ms": 12.129042,
+    "variant": "wand"
+  },
+  {
+    "case": "colour",
+    "ms": 44.423167,
+    "variant": "quick"
+  },
+  {
+    "case": "colour",
+    "ms": 79.73625,
+    "variant": "object",
+    "iou": 1.0
+  },
+  {
+    "case": "colour",
+    "ms": 261.717625,
+    "variant": "current_corrections",
+    "iou": 1.0
+  },
+  {
+    "case": "colour",
+    "ms": 112.466917,
+    "variant": "remembered_corrections",
+    "iou": 1.0
+  },
+  {
+    "case": "similar",
+    "ms": 4.539790999999999,
+    "variant": "wand"
+  },
+  {
+    "case": "similar",
+    "ms": 32.363333000000004,
+    "variant": "quick"
+  },
+  {
+    "case": "similar",
+    "ms": 90.924542,
+    "variant": "object",
+    "iou": 0.9999602417302799
+  },
+  {
+    "case": "similar",
+    "ms": 198.04749999999999,
+    "variant": "current_corrections",
+    "iou": 0.0
+  },
+  {
+    "case": "similar",
+    "ms": 342.74958300000003,
+    "variant": "remembered_corrections",
+    "iou": 0.9999734941355775
+  },
+  {
+    "case": "multicolour",
+    "ms": 1.835,
+    "variant": "wand"
+  },
+  {
+    "case": "multicolour",
+    "ms": 56.352166000000004,
+    "variant": "quick"
+  },
+  {
+    "case": "multicolour",
+    "ms": 289.876666,
+    "variant": "object",
+    "iou": 0.9032609476380875
+  },
+  {
+    "case": "multicolour",
+    "ms": 337.742209,
+    "variant": "current_corrections",
+    "iou": 0.5020476323009025
+  },
+  {
+    "case": "multicolour",
+    "ms": 217.349416,
+    "variant": "remembered_corrections",
+    "iou": 0.9036503868356128
+  },
+  {
+    "case": "holes_thin",
+    "ms": 2.15525,
+    "variant": "wand"
+  },
+  {
+    "case": "holes_thin",
+    "ms": 58.029166000000004,
+    "variant": "quick"
+  },
+  {
+    "case": "holes_thin",
+    "ms": 74.64741599999999,
+    "variant": "object",
+    "iou": 1.0
+  },
+  {
+    "case": "holes_thin",
+    "ms": 281.647875,
+    "variant": "current_corrections",
+    "iou": 0.26503753662109375
+  },
+  {
+    "case": "holes_thin",
+    "ms": 169.201834,
+    "variant": "remembered_corrections",
+    "iou": 0.9998273132824866
+  },
+  {
+    "case": "astronaut",
+    "variant": "mobile_point",
+    "encoder_ms": 5572.351250099018,
+    "decoder_ms": 430.4718340281397,
+    "score": 0.8748599290847778
+  },
+  {
+    "case": "astronaut",
+    "variant": "mobile_box",
+    "encoder_ms": 5572.351250099018,
+    "decoder_ms": 391.9264581054449,
+    "score": 0.992892861366272
+  },
+  {
+    "case": "astronaut",
+    "variant": "mobile_corrected",
+    "encoder_ms": 5572.351250099018,
+    "decoder_ms": 626.3955829199404,
+    "score": 0.9907604455947876
+  },
+  {
+    "case": "cat",
+    "variant": "mobile_point",
+    "encoder_ms": 3778.1295410823077,
+    "decoder_ms": 69.64145810343325,
+    "score": 0.9935166835784912
+  },
+  {
+    "case": "cat",
+    "variant": "mobile_box",
+    "encoder_ms": 3778.1295410823077,
+    "decoder_ms": 187.25812481716275,
+    "score": 0.9933810234069824
+  },
+  {
+    "case": "cat",
+    "variant": "mobile_corrected",
+    "encoder_ms": 3778.1295410823077,
+    "decoder_ms": 199.19270789250731,
+    "score": 0.9946882724761963
+  },
+  {
+    "case": "coffee",
+    "variant": "mobile_point",
+    "encoder_ms": 3505.3107920102775,
+    "decoder_ms": 72.88124994374812,
+    "score": 0.9935128688812256
+  },
+  {
+    "case": "coffee",
+    "variant": "mobile_box",
+    "encoder_ms": 3505.3107920102775,
+    "decoder_ms": 183.6017919704318,
+    "score": 1.0039618015289307
+  },
+  {
+    "case": "coffee",
+    "variant": "mobile_corrected",
+    "encoder_ms": 3505.3107920102775,
+    "decoder_ms": 254.5987090561539,
+    "score": 0.9873477220535278
+  },
+  {
+    "case": "colour",
+    "variant": "mobile_point",
+    "encoder_ms": 3298.9774998277426,
+    "decoder_ms": 219.5400840137154,
+    "score": 1.0166075229644775
+  },
+  {
+    "case": "colour",
+    "variant": "mobile_box",
+    "encoder_ms": 3298.9774998277426,
+    "decoder_ms": 323.0744160246104,
+    "score": 1.0129021406173706,
+    "iou": 0.9913058460233523
+  },
+  {
+    "case": "colour",
+    "variant": "mobile_corrected",
+    "encoder_ms": 3298.9774998277426,
+    "decoder_ms": 301.5254167839885,
+    "score": 1.0100805759429932,
+    "iou": 0.9914118722913602
+  },
+  {
+    "case": "similar",
+    "variant": "mobile_point",
+    "encoder_ms": 4380.633834050968,
+    "decoder_ms": 78.45312496647239,
+    "score": 1.0147299766540527
+  },
+  {
+    "case": "similar",
+    "variant": "mobile_box",
+    "encoder_ms": 4380.633834050968,
+    "decoder_ms": 165.38195800967515,
+    "score": 1.0125212669372559,
+    "iou": 0.9882443375346242
+  },
+  {
+    "case": "similar",
+    "variant": "mobile_corrected",
+    "encoder_ms": 4380.633834050968,
+    "decoder_ms": 172.66554199159145,
+    "score": 1.0090826749801636,
+    "iou": 0.98845639007064
+  },
+  {
+    "case": "multicolour",
+    "variant": "mobile_point",
+    "encoder_ms": 3911.5053748246282,
+    "decoder_ms": 139.41529113799334,
+    "score": 0.9991014003753662
+  },
+  {
+    "case": "multicolour",
+    "variant": "mobile_box",
+    "encoder_ms": 3911.5053748246282,
+    "decoder_ms": 115.4460001271218,
+    "score": 1.0110381841659546,
+    "iou": 0.8923764677832747
+  },
+  {
+    "case": "multicolour",
+    "variant": "mobile_corrected",
+    "encoder_ms": 3911.5053748246282,
+    "decoder_ms": 161.36291692964733,
+    "score": 1.001893162727356,
+    "iou": 0.8917873934938781
+  },
+  {
+    "case": "holes_thin",
+    "variant": "mobile_point",
+    "encoder_ms": 4161.82087501511,
+    "decoder_ms": 84.6958749461919,
+    "score": 1.016294002532959
+  },
+  {
+    "case": "holes_thin",
+    "variant": "mobile_box",
+    "encoder_ms": 4161.82087501511,
+    "decoder_ms": 180.44662498869002,
+    "score": 1.0085991621017456,
+    "iou": 0.9031369084507971
+  },
+  {
+    "case": "holes_thin",
+    "variant": "mobile_corrected",
+    "encoder_ms": 4161.82087501511,
+    "decoder_ms": 178.41166607104242,
+    "score": 0.9940917491912842,
+    "iou": 0.9067427878276462
+  },
+  {
+    "case": "astronaut",
+    "variant": "edge_point",
+    "encoder_ms": 1613.4777090046555,
+    "decoder_ms": 74.70795814879239,
+    "score": 0.6955547332763672
+  },
+  {
+    "case": "astronaut",
+    "variant": "edge_box",
+    "encoder_ms": 1613.4777090046555,
+    "decoder_ms": 172.7764590177685,
+    "score": 0.9116486310958862
+  },
+  {
+    "case": "astronaut",
+    "variant": "edge_corrected",
+    "encoder_ms": 1613.4777090046555,
+    "decoder_ms": 212.93245907872915,
+    "score": 0.8572328090667725
+  },
+  {
+    "case": "cat",
+    "variant": "edge_point",
+    "encoder_ms": 1718.9988330937922,
+    "decoder_ms": 68.10791697353125,
+    "score": 0.9404217004776001
+  },
+  {
+    "case": "cat",
+    "variant": "edge_box",
+    "encoder_ms": 1718.9988330937922,
+    "decoder_ms": 105.91679182834923,
+    "score": 0.9144784212112427
+  },
+  {
+    "case": "cat",
+    "variant": "edge_corrected",
+    "encoder_ms": 1718.9988330937922,
+    "decoder_ms": 193.18712502717972,
+    "score": 0.9139686226844788
+  },
+  {
+    "case": "coffee",
+    "variant": "edge_point",
+    "encoder_ms": 1948.0518749915063,
+    "decoder_ms": 66.78345799446106,
+    "score": 0.671395480632782
+  },
+  {
+    "case": "coffee",
+    "variant": "edge_box",
+    "encoder_ms": 1948.0518749915063,
+    "decoder_ms": 244.1138750873506,
+    "score": 0.9257345795631409
+  },
+  {
+    "case": "coffee",
+    "variant": "edge_corrected",
+    "encoder_ms": 1948.0518749915063,
+    "decoder_ms": 288.02433307282627,
+    "score": 0.9068788290023804
+  },
+  {
+    "case": "colour",
+    "variant": "edge_point",
+    "encoder_ms": 1464.5567920524627,
+    "decoder_ms": 78.81733286194503,
+    "score": 0.995634138584137
+  },
+  {
+    "case": "colour",
+    "variant": "edge_box",
+    "encoder_ms": 1464.5567920524627,
+    "decoder_ms": 135.7198329642415,
+    "score": 0.9885873794555664,
+    "iou": 0.9984493658303845
+  },
+  {
+    "case": "colour",
+    "variant": "edge_corrected",
+    "encoder_ms": 1464.5567920524627,
+    "decoder_ms": 147.18241686932743,
+    "score": 0.981456995010376,
+    "iou": 0.9988602176189151
+  },
+  {
+    "case": "similar",
+    "variant": "edge_point",
+    "encoder_ms": 1219.778083031997,
+    "decoder_ms": 61.87137519009411,
+    "score": 0.9908663630485535
+  },
+  {
+    "case": "similar",
+    "variant": "edge_box",
+    "encoder_ms": 1219.778083031997,
+    "decoder_ms": 66.25691708177328,
+    "score": 0.9450005292892456,
+    "iou": 0.7909693019343986
+  },
+  {
+    "case": "similar",
+    "variant": "edge_corrected",
+    "encoder_ms": 1219.778083031997,
+    "decoder_ms": 129.6902080066502,
+    "score": 0.9667097330093384,
+    "iou": 0.9926312720332918
+  },
+  {
+    "case": "multicolour",
+    "variant": "edge_point",
+    "encoder_ms": 1175.06583314389,
+    "decoder_ms": 67.0795829501003,
+    "score": 0.96241295337677
+  },
+  {
+    "case": "multicolour",
+    "variant": "edge_box",
+    "encoder_ms": 1175.06583314389,
+    "decoder_ms": 75.26837498880923,
+    "score": 0.989371120929718,
+    "iou": 0.8973528851647306
+  },
+  {
+    "case": "multicolour",
+    "variant": "edge_corrected",
+    "encoder_ms": 1175.06583314389,
+    "decoder_ms": 123.85695893317461,
+    "score": 0.8904485702514648,
+    "iou": 0.8979968779418248
+  },
+  {
+    "case": "holes_thin",
+    "variant": "edge_point",
+    "encoder_ms": 1094.2579170223325,
+    "decoder_ms": 55.28983403928578,
+    "score": 0.9933626055717468
+  },
+  {
+    "case": "holes_thin",
+    "variant": "edge_box",
+    "encoder_ms": 1094.2579170223325,
+    "decoder_ms": 55.321875028312206,
+    "score": 0.9753432273864746,
+    "iou": 0.9980282379355507
+  },
+  {
+    "case": "holes_thin",
+    "variant": "edge_corrected",
+    "encoder_ms": 1094.2579170223325,
+    "decoder_ms": 119.62404195219278,
+    "score": 0.9919245839118958,
+    "iou": 0.9977563641593556
+  },
+  {
+    "case": "astronaut",
+    "variant": "edge_quantized_point",
+    "encoder_ms": 185.2382500655949,
+    "decoder_ms": 19.439874915406108,
+    "score": 0.30137038230895996
+  },
+  {
+    "case": "astronaut",
+    "variant": "edge_quantized_box",
+    "encoder_ms": 185.2382500655949,
+    "decoder_ms": 17.96975010074675,
+    "score": 0.021376430988311768
+  },
+  {
+    "case": "astronaut",
+    "variant": "edge_quantized_corrected",
+    "encoder_ms": 185.2382500655949,
+    "decoder_ms": 19.138833042234182,
+    "score": 0.0011163651943206787
+  },
+  {
+    "case": "cat",
+    "variant": "edge_quantized_point",
+    "encoder_ms": 236.5673331078142,
+    "decoder_ms": 25.27341595850885,
+    "score": 0.2667875289916992
+  },
+  {
+    "case": "cat",
+    "variant": "edge_quantized_box",
+    "encoder_ms": 236.5673331078142,
+    "decoder_ms": 26.941040996462107,
+    "score": 0.353717565536499
+  },
+  {
+    "case": "cat",
+    "variant": "edge_quantized_corrected",
+    "encoder_ms": 236.5673331078142,
+    "decoder_ms": 28.22470781393349,
+    "score": 0.3407910466194153
+  },
+  {
+    "case": "coffee",
+    "variant": "edge_quantized_point",
+    "encoder_ms": 301.14475009031594,
+    "decoder_ms": 26.13675012253225,
+    "score": 0.5331370234489441
+  },
+  {
+    "case": "coffee",
+    "variant": "edge_quantized_box",
+    "encoder_ms": 301.14475009031594,
+    "decoder_ms": 26.960082817822695,
+    "score": 0.5327624082565308
+  },
+  {
+    "case": "coffee",
+    "variant": "edge_quantized_corrected",
+    "encoder_ms": 301.14475009031594,
+    "decoder_ms": 24.173542158678174,
+    "score": 0.489050954580307
+  },
+  {
+    "case": "colour",
+    "variant": "edge_quantized_point",
+    "encoder_ms": 235.37149978801608,
+    "decoder_ms": 22.821833845227957,
+    "score": 1.2218952178955078e-06
+  },
+  {
+    "case": "colour",
+    "variant": "edge_quantized_box",
+    "encoder_ms": 235.37149978801608,
+    "decoder_ms": 23.58166710473597,
+    "score": 8.344650268554688e-07
+  },
+  {
+    "case": "colour",
+    "variant": "edge_quantized_corrected",
+    "encoder_ms": 235.37149978801608,
+    "decoder_ms": 23.19450001232326,
+    "score": 6.854534149169922e-07,
+    "iou": 0.0
+  },
+  {
+    "case": "similar",
+    "variant": "edge_quantized_point",
+    "encoder_ms": 237.563791917637,
+    "decoder_ms": 22.70850003696978,
+    "score": 0.838407039642334
+  },
+  {
+    "case": "similar",
+    "variant": "edge_quantized_box",
+    "encoder_ms": 237.563791917637,
+    "decoder_ms": 22.403249982744455,
+    "score": 0.20136892795562744
+  },
+  {
+    "case": "similar",
+    "variant": "edge_quantized_corrected",
+    "encoder_ms": 237.563791917637,
+    "decoder_ms": 21.067542023956776,
+    "score": 0.0009893178939819336,
+    "iou": 0.00027270571496324403
+  },
+  {
+    "case": "multicolour",
+    "variant": "edge_quantized_point",
+    "encoder_ms": 241.4515840355307,
+    "decoder_ms": 23.29970896244049,
+    "score": 0.23665320873260498
+  },
+  {
+    "case": "multicolour",
+    "variant": "edge_quantized_box",
+    "encoder_ms": 241.4515840355307,
+    "decoder_ms": 26.601208839565516,
+    "score": 0.14475810527801514
+  },
+  {
+    "case": "multicolour",
+    "variant": "edge_quantized_corrected",
+    "encoder_ms": 241.4515840355307,
+    "decoder_ms": 24.797582998871803,
+    "score": 0.030977457761764526,
+    "iou": 0.0
+  },
+  {
+    "case": "holes_thin",
+    "variant": "edge_quantized_point",
+    "encoder_ms": 248.648582957685,
+    "decoder_ms": 25.954582961276174,
+    "score": 0.23929554224014282
+  },
+  {
+    "case": "holes_thin",
+    "variant": "edge_quantized_box",
+    "encoder_ms": 248.648582957685,
+    "decoder_ms": 23.95645808428526,
+    "score": 0.41947272419929504
+  },
+  {
+    "case": "holes_thin",
+    "variant": "edge_quantized_corrected",
+    "encoder_ms": 248.648582957685,
+    "decoder_ms": 23.639332968741655,
+    "score": 0.3539520502090454,
+    "iou": 0.20706060689075784
+  },
+  {
+    "case": "astronaut",
+    "variant": "edge_qdecoder_point",
+    "encoder_ms": 200.68574999459088,
+    "decoder_ms": 22.832458838820457,
+    "score": 0.7449715733528137
+  },
+  {
+    "case": "astronaut",
+    "variant": "edge_qdecoder_box",
+    "encoder_ms": 200.68574999459088,
+    "decoder_ms": 16.041791066527367,
+    "score": 0.918601393699646
+  },
+  {
+    "case": "astronaut",
+    "variant": "edge_qdecoder_corrected",
+    "encoder_ms": 200.68574999459088,
+    "decoder_ms": 18.51924997754395,
+    "score": 0.8542160987854004
+  },
+  {
+    "case": "cat",
+    "variant": "edge_qdecoder_point",
+    "encoder_ms": 199.6456659398973,
+    "decoder_ms": 22.57529180496931,
+    "score": 0.9378823041915894
+  },
+  {
+    "case": "cat",
+    "variant": "edge_qdecoder_box",
+    "encoder_ms": 199.6456659398973,
+    "decoder_ms": 21.23204106464982,
+    "score": 0.9138182401657104
+  },
+  {
+    "case": "cat",
+    "variant": "edge_qdecoder_corrected",
+    "encoder_ms": 199.6456659398973,
+    "decoder_ms": 23.911416996270418,
+    "score": 0.917607307434082
+  },
+  {
+    "case": "coffee",
+    "variant": "edge_qdecoder_point",
+    "encoder_ms": 263.679709052667,
+    "decoder_ms": 23.181499913334846,
+    "score": 0.6284679770469666
+  },
+  {
+    "case": "coffee",
+    "variant": "edge_qdecoder_box",
+    "encoder_ms": 263.679709052667,
+    "decoder_ms": 23.402708116918802,
+    "score": 0.9247184991836548
+  },
+  {
+    "case": "coffee",
+    "variant": "edge_qdecoder_corrected",
+    "encoder_ms": 263.679709052667,
+    "decoder_ms": 24.161667097359896,
+    "score": 0.9007949829101562
+  },
+  {
+    "case": "colour",
+    "variant": "edge_qdecoder_point",
+    "encoder_ms": 255.00837503932416,
+    "decoder_ms": 25.07841680198908,
+    "score": 0.9953218698501587
+  },
+  {
+    "case": "colour",
+    "variant": "edge_qdecoder_box",
+    "encoder_ms": 255.00837503932416,
+    "decoder_ms": 22.69495907239616,
+    "score": 0.9900296926498413
+  },
+  {
+    "case": "colour",
+    "variant": "edge_qdecoder_corrected",
+    "encoder_ms": 255.00837503932416,
+    "decoder_ms": 22.329790983349085,
+    "score": 0.9840418696403503,
+    "iou": 0.998913230752919
+  },
+  {
+    "case": "similar",
+    "variant": "edge_qdecoder_point",
+    "encoder_ms": 254.49141603894532,
+    "decoder_ms": 23.803832940757275,
+    "score": 0.989672064781189
+  },
+  {
+    "case": "similar",
+    "variant": "edge_qdecoder_box",
+    "encoder_ms": 254.49141603894532,
+    "decoder_ms": 23.854583967477083,
+    "score": 0.952147901058197
+  },
+  {
+    "case": "similar",
+    "variant": "edge_qdecoder_corrected",
+    "encoder_ms": 254.49141603894532,
+    "decoder_ms": 23.8344999961555,
+    "score": 0.9701956510543823,
+    "iou": 0.9923263488529284
+  },
+  {
+    "case": "multicolour",
+    "variant": "edge_qdecoder_point",
+    "encoder_ms": 235.43283296748996,
+    "decoder_ms": 24.578499840572476,
+    "score": 0.9613624215126038
+  },
+  {
+    "case": "multicolour",
+    "variant": "edge_qdecoder_box",
+    "encoder_ms": 235.43283296748996,
+    "decoder_ms": 21.889374824240804,
+    "score": 0.9892174005508423
+  },
+  {
+    "case": "multicolour",
+    "variant": "edge_qdecoder_corrected",
+    "encoder_ms": 235.43283296748996,
+    "decoder_ms": 21.25962497666478,
+    "score": 0.9028012752532959,
+    "iou": 0.898093422306959
+  },
+  {
+    "case": "holes_thin",
+    "variant": "edge_qdecoder_point",
+    "encoder_ms": 224.45041709579527,
+    "decoder_ms": 21.812249906361103,
+    "score": 0.992848813533783
+  },
+  {
+    "case": "holes_thin",
+    "variant": "edge_qdecoder_box",
+    "encoder_ms": 224.45041709579527,
+    "decoder_ms": 21.72395819798112,
+    "score": 0.9774473309516907
+  },
+  {
+    "case": "holes_thin",
+    "variant": "edge_qdecoder_corrected",
+    "encoder_ms": 224.45041709579527,
+    "decoder_ms": 19.88212508149445,
+    "score": 0.992563009262085,
+    "iou": 0.997670070473177
+  }
+]

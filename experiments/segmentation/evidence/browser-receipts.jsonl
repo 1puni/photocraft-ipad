@@ -1,0 +1,36 @@
+{"stage": "environment", "provider": "wasm", "secure": false, "webgpu": false, "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.3 Safari/605.1.15", "threads": 8}
+{"name": "mobile", "provider": "wasm", "stage": "loading"}
+{"name": "mobile", "provider": "wasm", "stage": "encoder_loaded", "ms": 2967}
+{"name": "mobile", "provider": "wasm", "stage": "encoded", "ms": 9680}
+{"name": "mobile", "provider": "wasm", "stage": "complete", "encoderMs": 9680, "decoderMs": 1182.0000000000018, "warmDecoderMs": [1389, 1441, 1527], "scores": [0.9262165427207947, 0.8324504494667053, 0.959557294845581, 0.9832661151885986], "nativeScores": [0.926216721534729, 0.8324503302574158, 0.959557294845581, 0.9832661151885986]}
+{"name": "edge", "provider": "wasm", "stage": "loading"}
+{"name": "edge", "provider": "wasm", "stage": "encoder_loaded", "ms": 907}
+{"name": "edge", "provider": "wasm", "stage": "encoded", "ms": 3650}
+{"name": "edge", "provider": "wasm", "stage": "complete", "encoderMs": 3650, "decoderMs": 308.00000000000364, "warmDecoderMs": [472.99999999999636, 366, 389], "scores": [0.67731773853302, 0.866713285446167, 0.6202484965324402], "nativeScores": [0.6773176193237305, 0.866713285446167, 0.6202482581138611]}
+{"stage": "finished", "provider": "wasm"}
+{"stage": "environment", "provider": "webgpu", "secure": true, "webgpu": true, "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36", "threads": 16}
+{"name": "edge_qdecoder", "provider": "webgpu", "stage": "loading"}
+{"name": "edge_qdecoder", "provider": "webgpu", "stage": "encoder_loaded", "ms": 2474}
+{"name": "edge_qdecoder", "provider": "webgpu", "stage": "encoded", "ms": 1576.8999998569489}
+{"name": "edge_qdecoder", "provider": "webgpu", "stage": "complete", "encoderMs": 1576.8999998569489, "decoderMs": 1564.2000000476837, "warmDecoderMs": [407.59999990463257, 400.5, 497], "scores": [1.883012919279281e-05, 2.943032086477615e-05, 1.651455386308953e-05], "nativeScores": [0.8370676040649414, 0.9007949829101562, 0.5451115965843201], "maskIoU": 0.007673211464680659}
+{"stage": "finished", "provider": "webgpu"}
+{"stage": "environment", "provider": "wasm", "secure": true, "webgpu": true, "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36", "threads": 16}
+{"name": "edge", "provider": "wasm", "stage": "loading"}
+{"name": "edge", "provider": "wasm", "stage": "encoder_loaded", "ms": 493.5}
+{"name": "edge", "provider": "wasm", "stage": "encoded", "ms": 6084.799999952316}
+{"name": "edge", "provider": "wasm", "stage": "complete", "encoderMs": 6084.799999952316, "decoderMs": 600.2000000476837, "warmDecoderMs": [636.5, 653.4000000953674, 648], "scores": [0.8376322984695435, 0.9068788290023804, 0.5697073340415955], "nativeScores": [0.83763188123703, 0.9068788290023804, 0.5697078108787537], "maskIoU": 1}
+{"name": "edge_qdecoder", "provider": "wasm", "stage": "loading"}
+{"name": "edge_qdecoder", "provider": "wasm", "stage": "encoder_loaded", "ms": 314}
+{"name": "edge_qdecoder", "provider": "wasm", "stage": "encoded", "ms": 6866.5}
+{"name": "edge_qdecoder", "provider": "wasm", "stage": "complete", "encoderMs": 6866.5, "decoderMs": 680.7999999523163, "warmDecoderMs": [539.4000000953674, 461.2000000476837, 557.6000001430511], "scores": [0.8360963463783264, 0.8999972939491272, 0.5485154390335083], "nativeScores": [0.8370676040649414, 0.9007949829101562, 0.5451115965843201], "maskIoU": 0.9987737584304108}
+{"stage": "finished", "provider": "wasm"}
+{"stage": "environment", "provider": "webgpu", "secure": true, "webgpu": true, "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36", "threads": 16}
+{"name": "edge", "provider": "webgpu", "stage": "loading"}
+{"name": "edge", "provider": "webgpu", "stage": "encoder_loaded", "ms": 840.3999998569489}
+{"name": "edge", "provider": "webgpu", "stage": "encoded", "ms": 106.79999995231628}
+{"name": "edge", "provider": "webgpu", "stage": "complete", "encoderMs": 106.79999995231628, "decoderMs": 192.90000009536743, "warmDecoderMs": [25, 72.20000004768372, 27.799999952316284], "scores": [0.8376323580741882, 0.9068797826766968, 0.5697158575057983], "nativeScores": [0.83763188123703, 0.9068788290023804, 0.5697078108787537], "maskIoU": 1}
+{"name": "edge_qdecoder", "provider": "webgpu", "stage": "loading"}
+{"name": "edge_qdecoder", "provider": "webgpu", "stage": "encoder_loaded", "ms": 260.39999985694885}
+{"name": "edge_qdecoder", "provider": "webgpu", "stage": "encoded", "ms": 54}
+{"name": "edge_qdecoder", "provider": "webgpu", "stage": "complete", "encoderMs": 54, "decoderMs": 252.79999995231628, "warmDecoderMs": [226, 203.90000009536743, 170.20000004768372], "scores": [1.883012919279281e-05, 2.943032086477615e-05, 1.651455386308953e-05], "nativeScores": [0.8370676040649414, 0.9007949829101562, 0.5451115965843201], "maskIoU": 0.007673211464680659}
+{"stage": "finished", "provider": "webgpu"}
