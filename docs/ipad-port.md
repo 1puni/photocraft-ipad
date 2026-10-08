@@ -2,23 +2,23 @@
 
 The goal is the complete PhotoCraft workflow adapted for iPad and Apple Pencil. Shared engine commands power a dedicated touch workspace.
 
-## Repository and publication boundary
+## Architecture
 
-The PhotoCraft fork owns reusable browser-host hooks and shared input fixes. This repository owns the Rust iPad workspace, touch/Pencil input adapter, local preview, and acceptance evidence. Source and release preparation are published to the private extension repository. Public visibility awaits V’s go-ahead; see [release preparation](release-preparation.md).
+PhotoCraft owns the engine, renderer and shared commands. This repository owns the Rust iPad workspace, touch/Pencil input adapter, local preview and acceptance evidence. Reusable browser-host and input changes are kept as reviewable patches. See [release checks](release-preparation.md).
 
-## Design direction after V's hands-on review
+## Design direction
 
-V prefers the familiar editor and precise Pencil targets. Replace the catalogue-first interface with a scrollable, grouped icon rail containing every tool, compact navigation, and contextual controls. Command browsing follows the actual menu hierarchy; search is an optional fallback. Keep the existing neutral PhotoCraft theme tokens (canvas #282828, chrome #323232, dock #1e1e1e, text #dedede, accent #378ef0 in Pro), the shared sans-serif UI type, and restrained selected-state accents. A two-column 40-point tool rail exposes more tools without oversized text buttons; panel tabs use icons with the selected panel's title. Preserve 44-point form controls where finger use matters. Portrait keeps the canvas above its inspector.
+The workspace keeps familiar editor navigation and precise Pencil targets: a scrollable, grouped icon rail, compact navigation and contextual controls. Command browsing follows the actual menu hierarchy, with search available on demand. PhotoCraft's neutral theme tokens (canvas #282828, chrome #323232, dock #1e1e1e, text #dedede, accent #378ef0 in Pro), shared sans-serif type and restrained selected-state accents carry through the interface. The two-column 40-point tool rail exposes every tool; panel tabs use icons and the selected panel's title. Form controls use 44-point targets where finger use matters. Portrait keeps the canvas above its inspector.
 
 Review each surface as an editing workflow, not as proof that a command can be found in a list. The hierarchy and rail are the first design pass; effects, selections, colours, presets and file workflows still require individual refinement.
 
-Keep command search prominent as a useful power tool. V also requested a bottom dictation control: a short spoken command should select a tool or reach the full command system. Speech and typing share resolution and action handling; ambiguous targets and missing parameters need explicit choices. The browser recognition adapter is implemented; real iPad recognition and permissions still need device acceptance. Do not claim fully on-device processing.
+Command search opens from the top bar when needed. It uses normal text input, including native iPad keyboard dictation, and the same live tool/menu catalogue. Ambiguous targets show labelled choices; parameters use existing dialogs. The permanent bottom command shelf and custom browser recognizer are being removed in the release correction.
 
-The design agent's proposal is one unrestricted Studio, with Photography and Illustration as optional saved arrangements. They change visible panels, not tools, documents, settings or capability. The distinctive interaction is a single edge dock with collapsed, working and expanded states: layer targets, their properties and deeper brush/colour/adjustment controls remain connected to the canvas. In landscape use a roughly 304-point working dock; in portrait use a bottom dock around 300 points, with explicit expansion and collapse. Keep the context strip to one row of two to four relevant controls.
+The next layout pass keeps one unrestricted Studio, with Photography and Illustration as optional saved arrangements. These change visible panels while retaining the same tools, documents and settings. A single edge dock connects layer targets, properties and deeper brush/colour/adjustment controls to the canvas, with collapsed, working and expanded states. The intended working sizes are roughly 304 points in landscape and a 300-point bottom dock in portrait. The context strip stays within one row of two to four relevant controls.
 
 The Layers stack now scrolls independently with pinned actions, separate image/mask/vector targets, meaningful layer-kind thumbnails and a properties/action sheet. A minimum portrait dock height preserves two usable layer rows. Remaining refinements include drag reorder, inline properties for wider docks, mask parameters and contextual actions such as Set source or Constrain instead of bare Alt/Shift latches. Typography, presets, masks and adjustments should expand the same dock instead of requiring unrelated modal lists. The reference workflows are photograph → crop → adjustment → mask → retouch → PSD/export, and canvas → brush → colour → clipped layer → brush dynamics → type/vector → save.
 
-Voice is a small bottom-edge microphone beside command search, opening a transcript/action tray. Final unambiguous reversible tool switches can execute immediately with a visible result and Revert. Ambiguity shows choices; required parameters open the same controls as menu/typed commands. Consequential actions show their target and proposed operation first. No always-listening mode, audio retention or document upload is needed. A custom web button cannot be assumed to invoke the native keyboard's dictation; test browser speech recognition and retain normal text/keyboard input as fallback. [WebKit documents Safari's Siri-backed speech recognition](https://webkit.org/blog/11648/new-webkit-features-in-safari-14-1/).
+Search and keyboard dictation share resolution and action handling. An unambiguous exact tool name can switch tools with a visible Revert action. Menu/document commands retain their labelled choices and shared controls.
 
 ## Acceptance matrix
 
@@ -27,7 +27,7 @@ Voice is a small bottom-edge microphone beside command search, opening a transcr
 | Hosting | Mac serves only public files on LAN, original and preview separated | Re-run scoped-server tests after changes |
 | Workspace | Touch rail, adaptive bottom/right inspector, contextual strip | Portrait, landscape, Split View, safe areas, keyboard checks |
 | Tools | All 49 tools in a grouped, scrollable icon rail | Per-tool options, actual gestures, apply/cancel controls |
-| Commands | Menu hierarchy, bottom typed search and browser speech adapter, shared tool/menu resolution; portrait command tray temporarily replaces inspector | Real iPad dictation and permissions; responsive dialogs for every family; catalogue access alone is not completion |
+| Commands | Menu hierarchy and shared tool/menu resolution | On-demand top-bar search correction; native keyboard dictation acceptance; responsive dialogs for every family |
 | Layers | Independent stack, pinned actions, image/mask targeting, properties sheet, multiselect, visibility, opacity, blend, locks, order, groups, masks, rename, thumbnails; channel/path sheets; adaptive Layer Style dialog | Physical channel/path/effects workflows; adjustment surfaces |
 | Brush | Tip basics, pressure, tilt influence, smoothing, presets; all 13 shared dynamics sections and live stroke preview | Physical dynamics/texture/mixer workflows and complete preset management |
 | Colour | Saturation/value pad, hue, hex, foreground/background, eyedropper | Swatches, precise multi-model values, profile proofing |
@@ -39,4 +39,4 @@ Voice is a small bottom-edge microphone beside command search, opening a transcr
 
 ## Preview evidence before workspace replacement
 
-Chrome: create, paint, undo/redo, panel toggle and PSD download verified. Original editor PSD saved and reopened with stroke intact. V tested the iPad preview and called it a good start. iPadOS 26.3 Web Inspector connects over USB. See [verification](verification.md) for build and device test results.
+Chrome: create, paint, undo/redo, panel toggle and PSD download verified. Original editor PSD saved and reopened with stroke intact. The preview has also been tried on an iPad; iPadOS 26.3 Web Inspector connects over USB. See [verification](verification.md) for build and device test results.
