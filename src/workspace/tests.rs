@@ -189,3 +189,69 @@ fn channel_controls_target_duplicate_and_undo_through_real_widgets() {
     h.run_steps(3);
     assert_eq!(h.state().0.session.active().unwrap().doc.channels.len(), 1);
 }
+
+#[test]
+fn switching_sheets_keeps_close_reachable_without_layout_drift() {
+    use egui_kittest::{Harness, kittest::Queryable};
+    let mut h = Harness::builder()
+        .with_size(vec2(507., 768.))
+        .build_ui_state(
+            |ui, (app, workspace): &mut (PhotocraftApp, TabletUi)| workspace.show(app, ui),
+            (app(), TabletUi::default()),
+        );
+    PhotocraftApp::setup_context(&h.ctx, photocraft_ui_egui::theme::ThemeKind::Pro);
+    photocraft_ui_egui::touch_ui::set_enabled(&h.ctx, true);
+    for sheet in [
+        Sheet::Paths,
+        Sheet::Brush,
+        Sheet::Files,
+        Sheet::Commands,
+        Sheet::Channels,
+        Sheet::Tools,
+    ] {
+        h.state_mut().1.open_sheet(sheet);
+        h.run_steps(3);
+        let before = h.get_by_label("Close").rect();
+        assert!(
+            before.min.y >= 0. && before.max.y <= 768.,
+            "{sheet:?}: {before:?}"
+        );
+        h.get_by_label("Close").click();
+        h.run_steps(3);
+        assert!(
+            h.state().1.sheet.is_none(),
+            "{sheet:?} moved away from the tap"
+        );
+    }
+}
+
+#[test]
+fn layer_name_follows_unlock_and_undo_without_overwriting_typing() {
+    use egui_kittest::Harness;
+    let mut app = app();
+    app.run("file.new", json!({"width":32,"height":32}))
+        .unwrap();
+    let mut h = Harness::builder()
+        .with_size(vec2(1194., 834.))
+        .build_ui_state(
+            |ui, (app, workspace): &mut (PhotocraftApp, TabletUi)| workspace.show(app, ui),
+            (app, TabletUi::default()),
+        );
+    h.run_steps(3);
+    assert_eq!(h.state().1.layer_name, "Background");
+    h.state_mut()
+        .0
+        .run("layer.new.layerFromBackground", json!({}))
+        .unwrap();
+    h.run_steps(3);
+    let name = h.state().0.session.active().unwrap().doc.layers[0]
+        .name
+        .clone();
+    assert_eq!(h.state().1.layer_name, name);
+    h.state_mut().1.layer_name = "Draft name".into();
+    h.run_steps(3);
+    assert_eq!(h.state().1.layer_name, "Draft name");
+    h.state_mut().0.run("edit.undo", json!({})).unwrap();
+    h.run_steps(3);
+    assert_eq!(h.state().1.layer_name, "Background");
+}

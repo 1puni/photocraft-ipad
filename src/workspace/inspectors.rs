@@ -50,9 +50,10 @@ impl TabletUi {
             ui.strong(&layer.name);
             let background = photocraft_ui_egui::doc_props_ui::is_background(&doc, layer);
             let key = (doc.id.0, layer.id.0);
-            if self.rename_layer != Some(key) {
+            if self.rename_layer != Some(key) || self.layer_name_source != layer.name {
                 self.rename_layer = Some(key);
                 self.layer_name = layer.name.clone();
+                self.layer_name_source = layer.name.clone();
             }
             ui.horizontal_wrapped(|ui| {
                 ui.add_sized(
