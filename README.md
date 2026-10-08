@@ -18,8 +18,8 @@ browser provides them, suppresses palm contacts during drawing, and releases
 input on cancellation. Two fingers pan and pinch the canvas.
 
 **The controls come to you.** A touch tool rail, contextual options and an
-inspector that moves below the canvas in portrait and Split View. Browse the
-full tool grid and command catalogue; work with layers, groups, masks, channels,
+inspector that moves below the canvas in portrait and Split View. Use the grouped
+tool rail and familiar menu hierarchy; work with layers, groups, masks, channels,
 paths, colour and undo history. The brush studio exposes all 13 shared dynamics
 sections and a live stroke preview. New Document, Export and Layer Style have
 responsive touch layouts.
@@ -40,8 +40,8 @@ contributors, supplies the image editor underneath: its formats, rendering,
 brush engine and shared controls. This independent [1puni](https://1puni.com)
 project brings that foundation to a dedicated iPad workspace.
 
-Reusable engine improvements are kept as four reviewable patches: browser host
-hooks, touch controls, batched pen fidelity, and responsive dialogs. Our
+Reusable engine improvements are kept as five reviewable patches: browser host
+hooks, touch controls, batched pen fidelity, responsive dialogs, and layer reveal. Our
 [upstream notes](docs/upstream.md) explain the proposed contribution path and
 recognize the other mobile and browser projects working nearby.
 
@@ -73,7 +73,8 @@ save before closing or reloading, as automatic recovery is not yet available.
 
 `setup.sh` uses the exact public upstream revision and patches recorded in this
 repo. It preserves existing checkouts and refuses a mismatched source tree.
-`build.sh` retains the last preview if compilation fails. Built files stay out of Git.
+`build.sh` retains the last preview if compilation fails. Built files stay out of Git. Each checkout keeps its own `target/` directory to
+prevent stale application code from another checkout being linked.
 
 ## Where v0.1 goes next
 

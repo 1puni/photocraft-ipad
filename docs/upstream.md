@@ -27,9 +27,10 @@ about scope before proposing its inclusion. Offer reusable fixes separately:
 | Responsive shared widgets and New Document | `cf6c45e` | Opt-in touch sizing with desktop unchanged; before/after captures |
 | Export and Layer Style touch layouts | `2b4b87d` | Separate focused UI proposals with narrow-width tests |
 | Browser host/workspace hooks | `022408e` | Discuss the seam first; this is an architecture decision |
+| Shared layer reveal API | `af949b1` | Small host API addition; supports layer targeting in alternate workspaces |
 | iPad workspace, navigation, diagnostics and hosting | This repository | Remain here unless upstream requests otherwise |
 
-The four source commits are preserved as mail patches in `patches/photocraft/`.
+The five source commits are preserved as mail patches in `patches/photocraft/`.
 They apply to the public baseline in `upstream.env`. They have not been submitted.
 Any upstream PR must follow the current guide, include the relevant upstream
 checks, and acknowledge overlapping work. The existing public `1puni/photocraft`

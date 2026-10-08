@@ -207,7 +207,6 @@ fn switching_sheets_keeps_close_reachable_without_layout_drift() {
         Sheet::Files,
         Sheet::Commands,
         Sheet::Channels,
-        Sheet::Tools,
     ] {
         h.state_mut().1.open_sheet(sheet);
         h.run_steps(3);
@@ -235,7 +234,13 @@ fn layer_name_follows_unlock_and_undo_without_overwriting_typing() {
         .with_size(vec2(1194., 834.))
         .build_ui_state(
             |ui, (app, workspace): &mut (PhotocraftApp, TabletUi)| workspace.show(app, ui),
-            (app, TabletUi::default()),
+            (
+                app,
+                TabletUi {
+                    sheet: Some(Sheet::LayerProperties),
+                    ..Default::default()
+                },
+            ),
         );
     h.run_steps(3);
     assert_eq!(h.state().1.layer_name, "Background");
@@ -254,4 +259,241 @@ fn layer_name_follows_unlock_and_undo_without_overwriting_typing() {
     h.state_mut().0.run("edit.undo", json!({})).unwrap();
     h.run_steps(3);
     assert_eq!(h.state().1.layer_name, "Background");
+}
+
+#[test]
+fn scrollable_rail_contains_every_tool_once() {
+    let tools: Vec<_> = navigation::TOOL_GROUPS
+        .iter()
+        .flat_map(|group| group.iter().copied())
+        .collect();
+    assert_eq!(tools.len(), Tool::ALL.len());
+    for tool in Tool::ALL {
+        assert_eq!(
+            tools.iter().filter(|candidate| **candidate == tool).count(),
+            1,
+            "{tool:?}"
+        );
+        assert!(photocraft_ui_egui::icons::exists(
+            photocraft_ui_egui::icons::tool_icon(tool)
+        ));
+    }
+}
+
+#[test]
+fn studio_browses_nested_actions_without_a_flat_catalogue() {
+    use egui_kittest::{Harness, kittest::Queryable};
+    let mut app = app();
+    app.run("file.new", json!({"width":32,"height":32}))
+        .unwrap();
+    let mut h = Harness::builder()
+        .with_size(vec2(1194., 834.))
+        .build_ui_state(
+            |ui, (app, workspace): &mut (PhotocraftApp, TabletUi)| workspace.show(app, ui),
+            (app, TabletUi::default()),
+        );
+    PhotocraftApp::setup_context(&h.ctx, photocraft_ui_egui::theme::ThemeKind::Pro);
+    photocraft_ui_egui::touch_ui::set_enabled(&h.ctx, true);
+    h.run_steps(3);
+    h.get_by_label("Eraser Tool").click();
+    h.run_steps(3);
+    assert_eq!(h.state().0.ui.tool, Tool::Eraser);
+    h.get_by_label("Studio").click();
+    h.run_steps(3);
+    assert!(h.query_by_label("Levels…").is_none());
+    h.get_by_label("Image").click();
+    h.run_steps(3);
+    h.get_by_label("Adjustments").click();
+    h.run_steps(3);
+    assert_eq!(h.state().1.command_path, ["Image", "Adjustments"]);
+    h.get_by_label("Levels…").click();
+    h.run_steps(3);
+    assert!(h.state().1.sheet.is_none());
+    assert_eq!(h.state().0.ui.dialogs.len(), 1);
+}
+
+#[test]
+fn image_and_mask_thumbnails_route_strokes_and_undo_independently() {
+    use egui_kittest::{Harness, kittest::Queryable};
+    use photocraft_ui_egui::canvas::paint_target;
+    let mut app = app();
+    app.run(
+        "file.new",
+        json!({"width":32,"height":32,"background":"transparent"}),
+    )
+    .unwrap();
+    app.run("layer.setProps", json!({"name":"Ink"})).unwrap();
+    app.run("layer.layerMask.revealAll", json!({})).unwrap();
+    app.run("tools.setBrush", json!({"brush":{"size":8.,"hardness":1.}}))
+        .unwrap();
+    let initial = app.session.active().unwrap().doc.clone();
+    let mut h = Harness::builder()
+        .with_size(vec2(1194., 834.))
+        .build_ui_state(
+            |ui, (app, w): &mut (PhotocraftApp, TabletUi)| w.show(app, ui),
+            (app, TabletUi::default()),
+        );
+    PhotocraftApp::setup_context(&h.ctx, photocraft_ui_egui::theme::ThemeKind::Pro);
+    h.run_steps(3);
+    h.get_by_label("Mask: Ink").click();
+    h.run_steps(3);
+    assert_eq!(paint_target(&h.state().0), json!("mask"));
+    let target = paint_target(&h.state().0);
+    h.state_mut()
+        .0
+        .run(
+            "paint.stroke",
+            json!({"points":[[16,16,1]],"target":target}),
+        )
+        .unwrap();
+    let masked = h.state().0.session.active().unwrap().doc.clone();
+    assert_eq!(masked.layers[0].surface(), initial.layers[0].surface());
+    assert_ne!(masked.layers[0].mask, initial.layers[0].mask);
+    h.state_mut()
+        .0
+        .run("view.layerMask", json!({"mode":"gray"}))
+        .unwrap();
+    h.run_steps(3);
+    h.get_by_label("Image: Ink").click();
+    h.run_steps(3);
+    assert_eq!(paint_target(&h.state().0), json!("pixels"));
+    assert!(
+        photocraft_engine::mask_view_cmds::current(h.state().0.session.active().unwrap()).is_none()
+    );
+    let target = paint_target(&h.state().0);
+    h.state_mut()
+        .0
+        .run("paint.stroke", json!({"points":[[8,8,1]],"target":target}))
+        .unwrap();
+    let painted = &h.state().0.session.active().unwrap().doc;
+    assert_ne!(painted.layers[0].surface(), masked.layers[0].surface());
+    assert_eq!(painted.layers[0].mask, masked.layers[0].mask);
+    h.state_mut().0.run("edit.undo", json!({})).unwrap();
+    assert_eq!(
+        h.state().0.session.active().unwrap().doc.layers,
+        masked.layers
+    );
+    h.state_mut().0.run("edit.undo", json!({})).unwrap();
+    assert_eq!(
+        h.state().0.session.active().unwrap().doc.layers,
+        initial.layers
+    );
+    h.state_mut().0.run("channel.new", json!({})).unwrap();
+    h.run_steps(3);
+    h.get_by_label("Image: Ink").click();
+    h.run_steps(3);
+    assert_eq!(paint_target(&h.state().0), json!("pixels"));
+    h.state_mut()
+        .0
+        .run("select.editInQuickMaskMode", json!({"on":true}))
+        .unwrap();
+    h.run_steps(3);
+    h.get_by_label("Image: Ink").click();
+    h.run_steps(3);
+    assert_eq!(
+        paint_target(&h.state().0),
+        json!("quickMask"),
+        "thumbnail must not silently discard Quick Mask"
+    );
+    assert!(h.query_by_label("Target · Quick Mask").is_some());
+}
+
+#[test]
+fn layer_stack_keeps_footer_reachable_and_visibility_does_not_select() {
+    use egui_kittest::{Harness, kittest::Queryable};
+    for size in [vec2(1194., 834.), vec2(834., 1194.), vec2(507., 768.)] {
+        let mut app = app();
+        app.run("file.new", json!({"width":32,"height":32}))
+            .unwrap();
+        for i in 0..24 {
+            app.run("layer.new.layer", json!({"name":format!("Layer {i}")}))
+                .unwrap();
+        }
+        let active = app.session.active().unwrap().active_layer;
+        let mut h = Harness::builder().with_size(size).build_ui_state(
+            |ui, (app, w): &mut (PhotocraftApp, TabletUi)| w.show(app, ui),
+            (app, TabletUi::default()),
+        );
+        PhotocraftApp::setup_context(&h.ctx, photocraft_ui_egui::theme::ThemeKind::Pro);
+        h.run_steps(3);
+        let before = h.get_by_label("New layer").rect();
+        let first_row = h.get_by_label("Image: Layer 23").rect();
+        assert!(
+            before.top() - first_row.top() >= 100.,
+            "two layer rows must fit: {size:?}"
+        );
+        assert!(
+            before.bottom() <= size.y && before.right() <= size.x,
+            "{size:?}: {before:?}"
+        );
+        h.get_by_label("Visibility: Layer 23").click();
+        h.run_steps(3);
+        assert_eq!(h.state().0.session.active().unwrap().active_layer, active);
+        assert!(
+            !h.state()
+                .0
+                .session
+                .active()
+                .unwrap()
+                .doc
+                .layer(active.unwrap())
+                .unwrap()
+                .visible
+        );
+        h.get_by_label("Select layer: Layer 0").scroll_to_me();
+        h.run_steps(3);
+        assert_eq!(
+            h.get_by_label("New layer").rect(),
+            before,
+            "scroll moved footer"
+        );
+        h.get_by_label("Layer properties and actions").click();
+        h.run_steps(3);
+        assert_eq!(h.state().1.sheet, Some(Sheet::LayerProperties));
+    }
+    for icon in [
+        "check",
+        "blend",
+        "pen-tool",
+        "plus",
+        "folder-plus",
+        "scan",
+        "ellipsis",
+    ] {
+        assert!(photocraft_ui_egui::icons::exists(icon), "{icon}");
+    }
+}
+
+#[test]
+fn add_mask_uses_selection_and_exits_alpha_channel_target() {
+    use egui_kittest::{Harness, kittest::Queryable};
+    let mut app = app();
+    app.run(
+        "file.new",
+        json!({"width":32,"height":32,"background":"transparent"}),
+    )
+    .unwrap();
+    app.run("select.rect", json!({"x":0,"y":0,"width":16,"height":16}))
+        .unwrap();
+    app.run("channel.new", json!({})).unwrap();
+    let mut h = Harness::builder()
+        .with_size(vec2(1194., 834.))
+        .build_ui_state(
+            |ui, (app, w): &mut (PhotocraftApp, TabletUi)| w.show(app, ui),
+            (app, TabletUi::default()),
+        );
+    h.run_steps(3);
+    h.get_by_label("Add layer mask").click();
+    h.run_steps(3);
+    assert!(h.state().1.message.is_empty(), "{}", h.state().1.message);
+    assert_eq!(
+        photocraft_ui_egui::canvas::paint_target(&h.state().0),
+        json!("mask")
+    );
+    let mask = h.state().0.session.active().unwrap().doc.layers[0]
+        .mask
+        .as_ref()
+        .unwrap();
+    assert!(mask.value(8, 8) > 0.99);
+    assert!(mask.value(24, 24) < 0.01);
 }

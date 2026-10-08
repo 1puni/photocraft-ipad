@@ -1,0 +1,22 @@
+From af949b10f9ebaa206993659d25834a1930623b98 Mon Sep 17 00:00:00 2001
+From: Evita Stenqvist <evita@stenqvist.co>
+Date: Thu, 8 Oct 2026 16:34:21 +0200
+Subject: [PATCH] Expose shared layer reveal behavior to alternate workspaces
+
+---
+ crates/ui-egui/src/lib.rs | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/crates/ui-egui/src/lib.rs b/crates/ui-egui/src/lib.rs
+index e59a64e..db81180 100644
+--- a/crates/ui-egui/src/lib.rs
++++ b/crates/ui-egui/src/lib.rs
+@@ -70,7 +70,7 @@ pub mod lasso_ui;
+ pub mod layer_menu_ui;
+ pub mod layer_pick_ui;
+ pub mod layer_props_ui;
+-mod layer_reveal;
++pub mod layer_reveal;
+ pub mod layer_row_ui;
+ pub mod layer_style;
+ mod layer_transfer;
