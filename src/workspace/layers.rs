@@ -11,6 +11,11 @@ pub(super) enum LayerTarget {
 }
 
 impl TabletUi {
+    pub(super) fn cancel_layer_arrange_drag(&mut self) {
+        self.layer_arrange_drag = None;
+        self.layer_autoscroll_at = None;
+    }
+
     pub(super) fn target_layer(
         &mut self,
         app: &mut PhotocraftApp,
@@ -85,7 +90,7 @@ impl TabletUi {
 
     pub(super) fn layers(&mut self, app: &mut PhotocraftApp, ui: &mut Ui) {
         if self.mask_controls.is_some() {
-            self.layer_arrange_drag = None;
+            self.cancel_layer_arrange_drag();
             if self.mask_controls_panel(app, ui) {
                 return;
             }
@@ -101,7 +106,7 @@ impl TabletUi {
             .is_some_and(|st| st.doc.quick_mask.is_some());
         if (selected_count > 1 || quick_mask) && self.arrange_layers {
             self.arrange_layers = false;
-            self.layer_arrange_drag = None;
+            self.cancel_layer_arrange_drag();
         }
         ui.horizontal(|ui| {
             ui.strong("Layers");
@@ -120,7 +125,7 @@ impl TabletUi {
                 .on_hover_text(arrange_label);
             if arrange.clicked() {
                 self.arrange_layers = !self.arrange_layers;
-                self.layer_arrange_drag = None;
+                self.cancel_layer_arrange_drag();
             }
             if navigation::icon_button(
                 ui,
@@ -141,7 +146,7 @@ impl TabletUi {
             }
         });
         let Some(st) = app.session.active() else {
-            self.layer_arrange_drag = None;
+            self.cancel_layer_arrange_drag();
             ui.label("Open an image to work with layers.");
             return;
         };
@@ -150,10 +155,10 @@ impl TabletUi {
             .layer_arrange_drag
             .is_some_and(|(drag_doc, _)| drag_doc != doc.id.0)
         {
-            self.layer_arrange_drag = None;
+            self.cancel_layer_arrange_drag();
         }
         if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
-            self.layer_arrange_drag = None;
+            self.cancel_layer_arrange_drag();
             self.arrange_layers = false;
         }
         let selected = st.selected_layers().to_vec();
@@ -180,7 +185,7 @@ impl TabletUi {
         // Reserve footer space before sizing the scroll area. The stack owns its scroll.
         let stack_height = (ui.available_height() - 50.).max(50.);
         let mut drop_target = None;
-        egui::ScrollArea::vertical()
+        let scroll = egui::ScrollArea::vertical()
             .scroll_source(egui::scroll_area::ScrollSource::ALL)
             .id_salt("ipad-layer-stack")
             .auto_shrink([false, false])
@@ -211,8 +216,50 @@ impl TabletUi {
                 )
             })
         });
+        let pointer = ui.input(|i| i.pointer.interact_pos());
+        let dragging = self.arrange_layers
+            && self.layer_arrange_drag.is_some()
+            && !touch_cancelled
+            && ui.input(|i| i.pointer.button_down(egui::PointerButton::Primary));
+        let visible_stack = scroll.inner_rect.intersect(ui.clip_rect());
+        let edge_band = (visible_stack.height() / 3.).min(36.);
+        let edge = pointer.and_then(|pointer| {
+            if !dragging || !visible_stack.contains(pointer) || edge_band <= 0. {
+                return None;
+            }
+            let from_top = pointer.y - visible_stack.top();
+            if from_top < edge_band {
+                Some((-1., (1. - from_top / edge_band).clamp(0., 1.)))
+            } else {
+                let from_bottom = visible_stack.bottom() - pointer.y;
+                (from_bottom < edge_band)
+                    .then_some((1., (1. - from_bottom / edge_band).clamp(0., 1.)))
+            }
+        });
+        if let Some((direction, proximity)) = edge {
+            let now = ui.input(|i| i.time);
+            let dt = self
+                .layer_autoscroll_at
+                .map_or(1. / 60., |previous| (now - previous).clamp(0., 0.05));
+            let speed = 80. + 520. * proximity;
+            let max_offset = (scroll.content_size.y - scroll.inner_rect.height()).max(0.);
+            let mut state = scroll.state;
+            let previous_offset = state.offset.y;
+            state.offset.y =
+                (previous_offset + direction * speed * dt as f32).clamp(0., max_offset);
+            if state.offset.y != previous_offset {
+                state.store(ui.ctx(), scroll.id);
+                ui.ctx()
+                    .request_repaint_after(std::time::Duration::from_millis(16));
+                self.layer_autoscroll_at = Some(now);
+            } else {
+                self.layer_autoscroll_at = None;
+            }
+        } else {
+            self.layer_autoscroll_at = None;
+        }
         if touch_cancelled {
-            self.layer_arrange_drag = None;
+            self.cancel_layer_arrange_drag();
         } else if ui.input(|i| i.pointer.any_released()) {
             if let (Some((drag_doc, dragged)), Some((target, position))) =
                 (self.layer_arrange_drag, drop_target)
@@ -230,7 +277,7 @@ impl TabletUi {
                     self.target_layer(app, ui.ctx(), LayerId(dragged), LayerTarget::Image);
                 }
             }
-            self.layer_arrange_drag = None;
+            self.cancel_layer_arrange_drag();
         }
         ui.horizontal(|ui| {
             for (icon, label, cmd) in [
@@ -888,6 +935,18 @@ mod tests {
         h.run_steps(4);
     }
 
+    fn many_layer_fixture(count: usize) -> PhotocraftApp {
+        let mut app = fixture(false, 0);
+        for i in 0..count {
+            app.run(
+                "layer.new.layer",
+                json!({"name":format!("Scroll layer {i:02}")}),
+            )
+            .unwrap();
+        }
+        app
+    }
+
     #[test]
     fn arrange_into_group_uses_one_move_command_and_undo_restores_hierarchy() {
         let mut app = fixture(false, 1);
@@ -921,6 +980,157 @@ mod tests {
         let st = h.state().0.session.active().unwrap();
         assert!(st.doc.layer(b).is_some());
         assert!(st.doc.layer(group).unwrap().children().unwrap().is_empty());
+    }
+
+    #[test]
+    fn held_edge_drag_scrolls_to_an_offscreen_layer_then_drop_and_undo_work() {
+        let app = many_layer_fixture(30);
+        let before = app.session.active().unwrap().doc.clone();
+        let source = app.session.active().unwrap().active_layer.unwrap();
+        let mut h = arrange_harness(app);
+        let footer = h.get_by_label("New layer").rect();
+        let stack_top = h.get_by_label("Reorder: Scroll layer 29").rect().top();
+        let hidden_before = h.get_by_label("Reorder: Scroll layer 00").rect();
+        assert!(hidden_before.top() >= footer.bottom());
+
+        let grip = h.get_by_label("Reorder: Scroll layer 29").rect().center();
+        h.hover_at(grip);
+        h.drag_at(grip);
+        h.run_steps(1);
+        let edge = egui::pos2(footer.center().x, footer.top() - 20.);
+        h.hover_at(edge);
+        let mut target_rect = hidden_before;
+        let mut found = false;
+        for _ in 0..250 {
+            h.run_steps(1);
+            target_rect = h.get_by_label("Select layer: Scroll layer 00").rect();
+            let footer = h.get_by_label("New layer").rect();
+            if target_rect.top() >= stack_top && target_rect.bottom() <= footer.top() - 36. {
+                found = true;
+                break;
+            }
+        }
+        assert!(found, "edge scrolling reveals the named hidden target");
+        assert!(target_rect.top() < hidden_before.top());
+        let drop = egui::pos2(target_rect.center().x, target_rect.bottom() - 4.);
+        h.hover_at(drop);
+        h.run_steps(1);
+        h.drop_at(drop);
+        h.run_steps(3);
+
+        let st = h.state().0.session.active().unwrap();
+        let target = st
+            .doc
+            .layers
+            .iter()
+            .position(|layer| layer.name == "Scroll layer 00")
+            .unwrap();
+        let moved = st
+            .doc
+            .layers
+            .iter()
+            .position(|layer| layer.id == source)
+            .unwrap();
+        assert!(
+            moved < target,
+            "the dragged layer lands below the target: {moved} vs {target}"
+        );
+        h.state_mut().0.run("edit.undo", json!({})).unwrap();
+        assert_eq!(h.state().0.session.active().unwrap().doc, before);
+    }
+
+    #[test]
+    fn ending_edge_autoscroll_stops_motion_and_short_portrait_stack_does_not_scroll() {
+        let app = many_layer_fixture(24);
+        let before = app.session.active().unwrap().doc.clone();
+        let mut h = arrange_harness(app);
+        let footer = h.get_by_label("New layer").rect();
+        let source = h.get_by_label("Reorder: Scroll layer 23").rect().center();
+        let stack_top = h.get_by_label("Reorder: Scroll layer 23").rect().top();
+        let target_before = h.get_by_label("Reorder: Scroll layer 00").rect();
+        h.hover_at(source);
+        h.drag_at(source);
+        h.run_steps(1);
+        let edge = egui::pos2(footer.center().x, footer.top() - 20.);
+        h.hover_at(edge);
+        h.run_steps(24);
+        let target_during = h.get_by_label("Reorder: Scroll layer 00").rect();
+        assert!(target_during.top() < target_before.top());
+        let top_edge = egui::pos2(edge.x, stack_top + 1.);
+        h.hover_at(top_edge);
+        h.run_steps(4);
+        let target_reversed = h.get_by_label("Reorder: Scroll layer 00").rect();
+        assert!(target_reversed.top() > target_during.top());
+        assert!(h.state().1.layer_autoscroll_at.is_some());
+
+        h.hover_at(footer.center());
+        h.run_steps(1);
+        let target_outside = h.get_by_label("Reorder: Scroll layer 00").rect();
+        assert!(h.state().1.layer_autoscroll_at.is_none());
+        h.run_steps(20);
+        assert_eq!(
+            h.get_by_label("Reorder: Scroll layer 00").rect(),
+            target_outside
+        );
+        h.drop_at(footer.center());
+        h.run_steps(3);
+        let target_stopped = h.get_by_label("Reorder: Scroll layer 00").rect();
+        h.run_steps(20);
+        let target_later = h.get_by_label("Reorder: Scroll layer 00").rect();
+        assert_eq!(target_later, target_stopped);
+        assert_eq!(h.state().0.session.active().unwrap().doc, before);
+        assert!(h.state().1.layer_autoscroll_at.is_none());
+
+        let app = many_layer_fixture(2);
+        let mut short = arrange_harness(app);
+        short.set_size(vec2(834., 1194.));
+        short.run_steps(3);
+        let top_before = short.get_by_label("Reorder: Scroll layer 01").rect();
+        let footer = short.get_by_label("New layer").rect();
+        let grip = top_before.center();
+        short.hover_at(grip);
+        short.drag_at(grip);
+        short.run_steps(1);
+        let edge = egui::pos2(footer.center().x, footer.top() - 20.);
+        short.hover_at(edge);
+        short.run_steps(24);
+        let top_after = short.get_by_label("Reorder: Scroll layer 01").rect();
+        assert_eq!(top_after, top_before);
+        assert!(short.state().1.layer_autoscroll_at.is_none());
+        short.drop_at(footer.center());
+        short.run_steps(2);
+    }
+
+    #[test]
+    fn touch_cancel_clears_active_edge_autoscroll_without_editing_document() {
+        let app = many_layer_fixture(24);
+        let before = app.session.active().unwrap().doc.clone();
+        let mut h = arrange_harness(app);
+        let source = h.get_by_label("Reorder: Scroll layer 23").rect().center();
+        let footer = h.get_by_label("New layer").rect();
+        h.hover_at(source);
+        h.drag_at(source);
+        h.run_steps(1);
+        let edge = egui::pos2(footer.center().x, footer.top() - 20.);
+        h.hover_at(edge);
+        h.run_steps(5);
+        assert!(h.state().1.layer_autoscroll_at.is_some());
+        assert!(h.state().1.layer_arrange_drag.is_some());
+
+        h.event(egui::Event::Touch {
+            device_id: egui::TouchDeviceId(2),
+            id: egui::TouchId(18),
+            phase: egui::TouchPhase::Cancel,
+            pos: edge,
+            force: None,
+        });
+        h.run_steps(1);
+        assert!(h.state().1.layer_autoscroll_at.is_none());
+        assert!(h.state().1.layer_arrange_drag.is_none());
+        let stopped = h.get_by_label("Reorder: Scroll layer 00").rect();
+        h.run_steps(20);
+        assert_eq!(h.get_by_label("Reorder: Scroll layer 00").rect(), stopped);
+        assert_eq!(h.state().0.session.active().unwrap().doc, before);
     }
 
     #[test]

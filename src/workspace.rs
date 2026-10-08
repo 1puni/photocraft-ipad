@@ -47,6 +47,7 @@ pub struct TabletUi {
     multi_select: bool,
     arrange_layers: bool,
     layer_arrange_drag: Option<(u64, u64)>,
+    layer_autoscroll_at: Option<f64>,
     mask_controls: Option<layers::LayerTarget>,
     mask_actions_open: bool,
     color_background: bool,
@@ -83,6 +84,7 @@ impl Default for TabletUi {
             multi_select: false,
             arrange_layers: false,
             layer_arrange_drag: None,
+            layer_autoscroll_at: None,
             mask_controls: None,
             mask_actions_open: false,
             color_background: false,
@@ -173,7 +175,7 @@ impl TabletUi {
     }
     pub fn show(&mut self, app: &mut PhotocraftApp, ui: &mut Ui) {
         if !self.inspector_open || self.inspector != Inspector::Layers || self.sheet.is_some() {
-            self.layer_arrange_drag = None;
+            self.cancel_layer_arrange_drag();
         }
         let ctx = ui.ctx().clone();
         self.update_source_pick(app, &ctx);
@@ -380,7 +382,7 @@ impl TabletUi {
         self.sheets(app, &ctx);
         self.command_tray(app, ui);
         if !self.inspector_open || self.inspector != Inspector::Layers || self.sheet.is_some() {
-            self.layer_arrange_drag = None;
+            self.cancel_layer_arrange_drag();
         }
     }
     fn inspector(&mut self, app: &mut PhotocraftApp, ui: &mut Ui) {
