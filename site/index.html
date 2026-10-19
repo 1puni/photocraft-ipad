@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PhotoCraft iPad — Open-source photo editor for iPad &amp; Apple Pencil</title>
+  <meta name="description" content="PhotoCraft iPad is an open-source browser photo editor with layers, brushes, masks and Apple Pencil input. Explore v0.1, build locally and contribute on GitHub.">
+  <meta name="theme-color" content="#ecf3f7">
+  <link rel="canonical" href="https://1puni.github.io/photocraft-ipad/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="PhotoCraft iPad">
+  <meta property="og:title" content="PhotoCraft iPad — A photo workspace made for Pencil">
+  <meta property="og:description" content="An open-source browser photo editor for iPad. Layers, brushes, masks and touch navigation, built in Rust on PhotoCraft. Explore v0.1 and build locally.">
+  <meta property="og:url" content="https://1puni.github.io/photocraft-ipad/">
+  <meta property="og:image" content="https://1puni.github.io/photocraft-ipad/assets/workspace.jpg">
+  <meta property="og:image:alt" content="PhotoCraft iPad workspace displaying Hokusai’s Great Wave with layers and colour controls.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="PhotoCraft iPad — Open-source photo editor">
+  <meta name="twitter:description" content="Layers, brushes and masks in an iPad browser workspace built for touch and Apple Pencil. Explore v0.1 and build locally.">
+  <meta name="twitter:image" content="https://1puni.github.io/photocraft-ipad/assets/workspace.jpg">
+  <meta name="twitter:image:alt" content="PhotoCraft iPad workspace displaying Hokusai’s Great Wave with layers and colour controls.">
+  <link rel="stylesheet" href="styles.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "PhotoCraft iPad",
+    "description": "An open-source iPad browser photo-editing workspace built in Rust on the PhotoCraft engine, with layers, brushes, masks and Apple Pencil input.",
+    "url": "https://1puni.github.io/photocraft-ipad/",
+    "downloadUrl": "https://github.com/1puni/photocraft-ipad",
+    "softwareVersion": "0.1",
+    "applicationCategory": "MultimediaApplication",
+    "operatingSystem": "iPadOS (browser)",
+    "softwareRequirements": "Local source build; see repository setup instructions.",
+    "screenshot": "https://1puni.github.io/photocraft-ipad/assets/workspace.jpg",
+    "license": ["https://github.com/1puni/photocraft-ipad/blob/main/LICENSE-MIT", "https://github.com/1puni/photocraft-ipad/blob/main/LICENSE-APACHE"],
+    "author": {"@type": "Organization", "name": "1puni", "url": "https://1puni.com"}
+  }
+  </script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="masthead wrap">
+    <a class="wordmark" href="./" aria-label="PhotoCraft iPad home">PhotoCraft <span>iPad</span></a>
+    <nav aria-label="Main navigation">
+      <a href="#workspace">Workspace</a>
+      <a href="https://github.com/1puni/photocraft-ipad">GitHub</a>
+    </nav>
+  </header>
+  <main id="main">
+    <section class="intro wrap" aria-labelledby="intro-title">
+      <p class="version">v0.1 / Independent workspace by 1puni</p>
+      <h1 id="intro-title">Open-source photo editing.<br>Within Pencil’s reach.</h1>
+      <p class="lede">PhotoCraft iPad brings layers, brushes, masks and paths to an iPad browser workspace. Pencil draws. Fingers navigate. Built in Rust on the PhotoCraft engine.</p>
+      <div class="actions">
+        <a class="button" href="https://github.com/1puni/photocraft-ipad#build-and-try-locally">Build and try locally</a>
+        <a href="https://github.com/1puni/photocraft-ipad">Explore the source</a>
+      </div>
+      <p class="build-note">Free, open-source v0.1. A local source build is required to run the editor.</p>
+    </section>
+    <figure class="workspace wrap" id="workspace">
+      <img src="assets/workspace.jpg" width="1272" height="846" alt="The PhotoCraft iPad editor showing Hokusai’s Great Wave, a left-hand tool rail, colour controls and a layers panel with separate image and mask targets." fetchpriority="high">
+      <figcaption>The actual v0.1 browser workspace. Artwork: Hokusai, <cite>The Great Wave off Kanagawa</cite>, public domain.</figcaption>
+    </figure>
+    <section class="details wrap" aria-labelledby="workspace-title">
+      <div class="section-intro">
+        <h2 id="workspace-title">A photo editor with room for your hands.</h2>
+        <p>For painting, retouching and layered image editing on iPad, with an interface you can build, inspect and change. This independent workspace connects to PhotoCraft’s shared editor engine.</p>
+      </div>
+      <div class="features">
+        <article>
+          <h3>Apple Pencil and touch</h3>
+          <p>The input adapter preserves pressure and tilt, handles coalesced pen samples when available, and separates drawing from two-finger pan and pinch. Measured physical Pencil testing is part of the next pass.</p>
+        </article>
+        <article>
+          <h3>Layers and masks, close by</h3>
+          <p>Keep image and mask targets distinct. Adjust mask density and feather, reorder layers and groups, and change layer properties in the dock beside your canvas.</p>
+        </article>
+        <article>
+          <h3>Colour and brush control</h3>
+          <p>Keep foreground and background colours visible. Work with RGB, HSB, Lab D50 and hex values, save named swatches, and explore shared brush dynamics with a live stroke preview.</p>
+        </article>
+        <article>
+          <h3>Your build, your documents</h3>
+          <p>Run the web photo editor from your own machine and open it on an iPad on the same network. Documents are edited in the browser; Save downloads a file to keep in Files. Save before closing or reloading: automatic recovery is not yet available.</p>
+        </article>
+      </div>
+    </section>
+    <section class="next" aria-labelledby="next-title">
+      <div class="wrap next-inner">
+        <div>
+          <h2 id="next-title">Take it for a local spin.</h2>
+          <p>Setup uses Git, Rust 1.96 or newer, WebAssembly, Trunk, uv and cargo-about. The repository walks you through the build and opening the workspace in Safari.</p>
+          <a class="button" href="https://github.com/1puni/photocraft-ipad#build-and-try-locally">Read the setup guide</a>
+        </div>
+        <div>
+          <h3>Help shape the next version</h3>
+          <p>Next up: measured Pencil testing, longer PSD workflows, remaining touch dialogs and recovery. Bring a small fix, a reproducible bug or feedback from an editing session.</p>
+          <p class="links"><a href="https://github.com/1puni/photocraft-ipad/blob/main/docs/ipad-port.md">Read the roadmap</a><a href="https://github.com/1puni/photocraft-ipad/blob/main/CONTRIBUTING.md">Contribute</a><a href="https://github.com/1puni/photocraft-ipad/blob/main/docs/verification.md">See the test record</a></p>
+        </div>
+      </div>
+    </section>
+  </main>
+  <footer class="wrap footer">
+    <p>Made with <a href="https://github.com/storytold/photocraft">PhotoCraft</a>, by the ArtCraft team and contributors. An independent iPad workspace by <a href="https://1puni.com">1puni</a>.</p>
+    <p>Code: <a href="https://github.com/1puni/photocraft-ipad/blob/main/LICENSE-MIT">MIT</a> OR <a href="https://github.com/1puni/photocraft-ipad/blob/main/LICENSE-APACHE">Apache-2.0</a>, at your option. <a href="https://github.com/1puni/photocraft-ipad/blob/main/NOTICE">Notices</a> and <a href="https://github.com/1puni/photocraft-ipad/blob/main/ATTRIBUTION.md">artwork credits</a>. PhotoCraft and ArtCraft belong to their respective authors. iPad and Apple Pencil are Apple trademarks.</p>
+    <p>This informational site has no analytics, forms or third-party embeds.</p>
+  </footer>
+</body>
+</html>

@@ -1,10 +1,35 @@
 <p align="center"><img src="public/images/cover.svg" alt="PhotoCraft on iPad — A studio within reach. An independent workspace by 1puni." width="100%"></p>
 
-<p align="center"><strong>A touch workspace for PhotoCraft. Built in Rust. Made for Pencil.</strong><br>
+<h1 align="center">PhotoCraft for iPad — open-source photo editor</h1>
+
+<p align="center"><strong>A touch workspace for PhotoCraft. Built in Rust. Made for Apple Pencil.</strong><br>
 Layers, brushes, masks, channels and paths — with room for your hands.</p>
 
 <p align="center"><strong>v0.1</strong> · iPad browser workspace · MIT OR Apache-2.0<br>
-<a href="#build-and-try-locally">Build it</a> · <a href="docs/ipad-port.md">Roadmap</a> · <a href="CONTRIBUTING.md">Contribute</a> · <a href="https://github.com/storytold/photocraft">PhotoCraft upstream</a></p>
+<a href="https://1puni.github.io/photocraft-ipad/">Project website</a> · <a href="#build-and-try-locally">Build it</a> · <a href="docs/ipad-port.md">Roadmap</a> · <a href="CONTRIBUTING.md">Contribute</a> · <a href="https://github.com/storytold/photocraft">PhotoCraft upstream</a></p>
+
+**PhotoCraft for iPad is a free, open-source browser photo editor with an Apple
+Pencil workspace.** Edit images with layers, brushes, masks and retouching tools,
+using PhotoCraft's shared Rust engine compiled to WebAssembly. Build and self-host
+the web editor on your own machine, then open it in Safari on an iPad on the same
+network. This is an independent adaptation by 1puni, built on
+[PhotoCraft](https://github.com/storytold/photocraft) by the ArtCraft team and
+contributors.
+
+## Why use PhotoCraft on iPad?
+
+- **Photo editing with Apple Pencil:** paint and retouch with pressure and tilt
+  input while fingers pan and zoom the canvas.
+- **An open-source photo-editing alternative:** explore familiar layers, masks,
+  channels and paths in a free iPad browser workspace. The
+  [roadmap](docs/ipad-port.md) records remaining workflows and physical-device checks.
+- **A self-hosted web photo editor:** serve the app yourself; documents are edited
+  in your browser and saved as downloads. Save before closing, as automatic
+  recovery is not yet available.
+- **A Rust and WebAssembly project to build on:** contribute to the iPad workspace
+  or review the small patch series that connects it to the shared PhotoCraft engine.
+
+Start with [the local setup instructions](#build-and-try-locally) below.
 
 <img src="public/images/workspace.jpg" alt="The current PhotoCraft iPad workspace with Hokusai’s Great Wave, pinned foreground/background colours, and separate image and mask targets in Layers." width="100%">
 

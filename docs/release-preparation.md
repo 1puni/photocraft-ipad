@@ -2,7 +2,11 @@
 
 The maintainer authorized publication on 8 October 2026. The v0.1 source release
 includes the iPad workspace, eight reproducible PhotoCraft patches, a local preview
-and a standalone segmentation evaluation. Hosted demos remain a separate project.
+and a standalone segmentation evaluation. Hosted editor demos remain a separate project.
+On 19 October 2026 the maintainer requested discoverability improvements, including
+a public web presence. The static project website in `site/` is published through
+GitHub Pages; it links to source setup and does not distribute a compiled editor.
+See [discoverability](discoverability.md) for maintenance and indexing checks.
 
 ## Release checks
 
