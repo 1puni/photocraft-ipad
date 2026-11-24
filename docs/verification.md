@@ -442,3 +442,28 @@ not transport simulations. The viewport screenshot path still timed out; use
 PNG export-copy for document previews. Physical-iPad file I/O and shared live
 canvas synchronization are not claimed; the documented lease handoff transfers
 saved document contents between independent browser sessions.
+
+
+## Named browser sessions — 2026-11-24
+
+Implementation: `1954f9e`, local release build, Zen on macOS, WebGL renderer.
+Verified in a fresh empty editor window: expand Device/Tab badge, edit tab label,
+read matching browser title and MCP session metadata, select exact tab through
+upstream MCP and successfully inspect UI. Reload retained tab ID and label while
+changing page generation; reselection and UI inspection succeeded. A second tab
+registered a distinct ID and independently editable label. The badge was visually
+checked at the desktop window's portrait-shaped viewport. No artwork was loaded
+or altered for these checks.
+
+Automated checks: 79 native tests, 22 server/relay tests, JavaScript identity
+checks (reload, separate tabs, copied-session conflict, device rename propagation,
+storage-denied fallback), cargo fmt, Clippy with warnings denied for this crate,
+WASM check, and full packaged release build passed. Existing dead-code warnings
+remain in upstream engine/CMS code. Relay tests cover independent controller
+selection, wrong-page replies, offline state, stale selection, cancellation on
+reload and timeout without replay.
+
+Physical iPad, landscape/Split View badge layout, document autosave/recovery and
+live browser duplicate-tab handling were not validated in this batch. Duplicate
+tab conflict handling is covered by automated identity tests. This is explicit
+routing and reconnect identity, not document synchronization or recovery.
