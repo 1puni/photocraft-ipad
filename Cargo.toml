@@ -17,8 +17,9 @@ photocraft-engine = { path = "../photocraft/crates/engine" }
 photocraft-web = { path = "../photocraft/apps/photocraft-web", features = ["heif"] }
 eframe = { version = "=0.36.2", default-features = false, features = ["wgpu"] }
 wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
-web-sys = { version = "0.3", features = ["HtmlCanvasElement", "PointerEvent", "DomRect", "Event"] }
+web-sys = { version = "0.3", features = ["HtmlCanvasElement", "PointerEvent", "DomRect", "Event", "Window", "Location", "Request", "RequestInit", "Response", "Headers"] }
 
 [lints.rust]
 unsafe_code = "forbid"

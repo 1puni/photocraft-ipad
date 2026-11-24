@@ -31,9 +31,10 @@ about scope before proposing its inclusion. Offer reusable fixes separately:
 | Multi-layer arrangement command | `21a573c` | Explicit layer-set moves, preserved order and selection, one Undo step; existing single-layer callers retained |
 | Pre-edit layer selection in history | `a28993e` | Capture the live selection at successful edit boundaries; preserve a coalesced gesture's original Undo target and restore merged selections |
 | Pixel-mask density and feather command | `9fe4e48` | Validated, undoable property editing for the existing compositor; explicit/active targets, coalescing, no-op handling and PSD coverage |
+| Attach live control after construction | `bfeec4a1a` | Transport seam preserving the existing session and command queue; browser relay remains in this repository |
 | iPad workspace, navigation, diagnostics and hosting | This repository | Remain here unless upstream requests otherwise |
 
-The eight source commits are preserved as mail patches in `patches/photocraft/`.
+The nine source commits are preserved as mail patches in `patches/photocraft/`.
 They apply to the public baseline in `upstream.env`. They have not been submitted.
 Any upstream PR must follow the current guide, include the relevant upstream
 checks, and acknowledge overlapping work. The existing public `1puni/photocraft`

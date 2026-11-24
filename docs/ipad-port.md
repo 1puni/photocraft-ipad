@@ -51,3 +51,10 @@ leaving the edge or ending the drag stops it.
 ## Preview evidence before workspace replacement
 
 Chrome: create, paint, undo/redo, panel toggle and PSD download verified. Original editor PSD saved and reopened with stroke intact. The preview has also been tried on an iPad; iPadOS 26.3 Web Inspector connects over USB. See [verification](verification.md) for build and device test results.
+
+## Local agent collaboration
+
+An opt-in browser transport now connects the shared control queue to the existing
+MCP bridge; see [browser control](browser-control.md). Verify a separate browser
+session before switching from an unsaved editor. Filesystem open/save authority,
+automatic recovery and physical-iPad transport verification remain separate work.

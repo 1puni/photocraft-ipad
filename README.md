@@ -108,10 +108,10 @@ contributors, supplies the image editor underneath: its formats, rendering,
 brush engine and shared controls. This independent [1puni](https://1puni.com)
 project brings that foundation to a dedicated iPad workspace.
 
-Reusable engine improvements are kept as eight reviewable patches: browser host
+Reusable engine improvements are kept as nine reviewable patches: browser host
 hooks, touch controls, batched pen fidelity, responsive dialogs, layer reveal,
 multi-layer arrangement, pre-edit selection restoration on Undo, and pixel-mask
-properties. Our
+properties, and attaching control to a live browser session. Our
 [upstream notes](docs/upstream.md) explain the proposed contribution path and
 recognize the other mobile and browser projects working nearby.
 
@@ -175,3 +175,10 @@ PhotoCraft and ArtCraft belong to their respective authors; this is an independe
 adaptation. iPad and Apple Pencil are Apple trademarks.
 
 <p align="center"><sub>Made with PhotoCraft. A little more within reach. <a href="https://1puni.com">1puni</a> ◡</sub></p>
+
+## Collaborate through MCP locally
+
+The opt-in [live browser control relay](docs/browser-control.md) connects
+PhotoCraft's existing MCP bridge to the document in the browser. It uses the
+shared command and undo paths. Start it in a separate local instance and save
+existing browser work before switching; it is not enabled by ordinary page loads.

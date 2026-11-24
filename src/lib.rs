@@ -4,6 +4,8 @@ pub mod input;
 pub mod workspace;
 
 #[cfg(target_arch = "wasm32")]
+mod control_web;
+#[cfg(target_arch = "wasm32")]
 mod input_web;
 
 #[cfg(target_arch = "wasm32")]
@@ -15,6 +17,7 @@ pub fn start() {
 #[derive(Default)]
 struct BrowserWorkspace {
     contacts: input_web::Shared,
+    control: Option<control_web::BrowserControl>,
     workspace: workspace::TabletUi,
 }
 
@@ -27,6 +30,7 @@ impl photocraft_web::web::BrowserWorkspace for BrowserWorkspace {
         app: &mut photocraft_ui_egui::PhotocraftApp,
     ) {
         input_web::install(canvas, ctx, self.contacts.clone(), app.stylus.feed.clone());
+        self.control = control_web::BrowserControl::attach(app);
     }
 
     fn raw_input(&mut self, raw: &mut egui::RawInput) {
@@ -34,7 +38,10 @@ impl photocraft_web::web::BrowserWorkspace for BrowserWorkspace {
         self.workspace.raw_input(raw);
     }
 
-    fn logic(&mut self, app: &mut photocraft_ui_egui::PhotocraftApp, _ctx: &egui::Context) {
+    fn logic(&mut self, app: &mut photocraft_ui_egui::PhotocraftApp, ctx: &egui::Context) {
+        if let Some(control) = &mut self.control {
+            control.tick(ctx);
+        }
         let mut contacts = self.contacts.borrow_mut();
         if let Some(xf) = photocraft_ui_egui::canvas::ViewXform::active(app) {
             contacts.area =

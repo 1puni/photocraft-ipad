@@ -370,3 +370,38 @@ disabled vector mask retained. Both browser tabs logged no errors and only the
 existing SetTheme warning. The reopened review document remains available;
 previous review documents were preserved. Port 4876 serves this build. Physical
 Pencil acceptance remains open.
+
+## Opt-in live browser control — 24 November 2026
+
+Prepared on an isolated topic branch. Existing browser documents and the original
+local preview were not reloaded or replaced. The new relay remains local; no
+hosted editor deployment or upstream submission was made.
+
+Verified:
+
+- `cargo fmt --check`.
+- `cargo test --locked`: all 77 extension tests passed.
+- `cargo clippy --locked --all-targets --no-deps -- -D warnings` passed.
+- `cargo check --target wasm32-unknown-unknown` passed; subsequent optimized
+  `./build.sh` used the lockfile and passed, including notices/package generation.
+- `uv run --no-project --python 3.12 python -m unittest test_server test_control_relay`:
+  five tests passed, including auth rejection, exclusive browser ownership,
+  exact request/reply forwarding and expiry without replay.
+- Shared UI regression `attaching_transport_preserves_live_document_and_dispatches_requests`
+  passed (one selected test, 837 filtered). The engine patch preserves the live
+  session while attaching a transport and runs an inspect request through its queue.
+- Existing upstream `photocraft-cli` built. Real MCP stdio initialize and
+  `tools/call ui_inspect` reached the relay and correctly reported no active
+  browser before a page opted in.
+
+Native builds used `CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0` to limit disk
+usage. A pre-existing unused `OPENABLE` engine constant warning appeared in the
+WASM build. No engine commands or format behavior changed.
+
+**Live acceptance remains unverified:** native browser reads worked, but New Tab,
+New Window and File-menu input attempts timed out. No live page has yet attached;
+inspect/render against a real browser document, browser save/download and
+physical iPad testing must still be performed. Automated transport simulation and
+successful compilation do not establish those results. Open a new opted-in tab
+using [the setup guide](browser-control.md), preserving any unsaved old tab, then
+verify document dimensions/layers through MCP and save/reopen a layered document.
