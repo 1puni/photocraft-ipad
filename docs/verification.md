@@ -425,7 +425,20 @@ optimized browser build passed with `CARGO_PROFILE_WASM_RELEASE_LTO=false` for
 this local development build (source release profile unchanged). The shared
 native importer also read a four-layer PSD successfully.
 
-**Live protocol2 transfer remains pending:** the server is ready, but the new
-empty browser page must refresh to the new bundle before import, export-copy and
-saved PSD round-trip can be verified. No current browser artwork was replaced.
-A successful build or headless import does not establish live-browser file I/O.
+**Live protocol2 file I/O verified after the new empty page refreshed:** real
+upstream MCP uploaded a 9,412,396-byte RGBA-layered PSD without a picker. Live
+`doc_inspect` reported 1516 × 1037 and all four independent layers. MCP save used
+the browser exporter and atomically downloaded a 9,174,444-byte PSD with no
+warnings. Both the shared native reader and an independent PSD parser confirmed
+the dimensions and four layers; the independent comparison found every alpha
+value in the transparent artwork layer unchanged. The original local source and
+older browser document were not replaced.
+
+MCP export-copy produced a 1,894,512-byte PNG, visually inspected with all four
+layers composed. Its normal flattened-output warning applies to the PNG copy;
+the live document and saved PSD retained their layers. Export-copy did not change
+the document save path/revision. These are actual browser import/export results,
+not transport simulations. The viewport screenshot path still timed out; use
+PNG export-copy for document previews. Physical-iPad file I/O and shared live
+canvas synchronization are not claimed; the documented lease handoff transfers
+saved document contents between independent browser sessions.

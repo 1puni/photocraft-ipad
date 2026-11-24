@@ -5,6 +5,10 @@ session visible in the browser. It sends requests into the shared editor's contr
 queue; command dispatch, Undo, delayed input and background-job replies stay in
 PhotoCraft. There is no second headless document and no browser-click automation.
 
+Desktop browser import, four-layer PSD save/readback and PNG export-copy have
+been verified through real upstream MCP; see [the test record](verification.md).
+Viewport screenshots timed out on the tested path; use export-copy for previews.
+
 Build this checkout normally (`./setup.sh`, `./build.sh`). Start a separate local
 instance so an existing browser's unsaved document stays untouched:
 
