@@ -24,7 +24,7 @@ class BrowserRelay(unittest.TestCase):
 
     def request(self, path, body=None, token=TOKEN, session="browser-one"):
         conn = http.client.HTTPConnection("127.0.0.1", self.http.server_port, timeout=3)
-        headers = {"Authorization": "Bearer " + token, "X-PhotoCraft-Session": session}
+        headers = {"Authorization": "Bearer " + token, "X-PhotoCraft-Session": session, "X-PhotoCraft-Protocol": "2"}
         conn.request("GET" if body is None else "POST", path, None if body is None else json.dumps(body), headers)
         response = conn.getresponse()
         result = response.status, response.read()
@@ -66,6 +66,14 @@ class BrowserRelay(unittest.TestCase):
         self.relay.poll("browser-one")
         self.assertEqual(self.request("/control/reply", {"id": "x", "reply": {"ok": True}}, session="other")[0], 400)
         self.assertEqual(self.request("/control/reply", ["not", "an", "envelope"])[0], 400)
+
+    def test_explicit_release_retires_old_page_and_admits_new_one(self):
+        self.relay.poll("old")
+        self.assertTrue(self.relay.release()["ok"])
+        with self.assertRaises(ValueError):
+            self.relay.poll("old")
+        self.assertIsNone(self.relay.poll("new"))
+        self.assertEqual(self.relay.session, "new")
 
     def test_tcp_requires_authentication(self):
         with socket.create_connection(self.tcp.server_address, timeout=3) as sock:

@@ -6,6 +6,7 @@ use wasm_bindgen::{JsCast as _, JsValue};
 use wasm_bindgen_futures::{JsFuture, spawn_local};
 
 pub struct BrowserControl {
+    files: Rc<std::cell::RefCell<crate::control_files::Files>>,
     token: String,
     session: String,
     tx: mpsc::Sender<ControlRequest>,
@@ -24,9 +25,20 @@ impl BrowserControl {
         }
         let (tx, rx) = mpsc::channel();
         app.attach_control(rx);
+        let files = Rc::new(std::cell::RefCell::new(
+            crate::control_files::Files::default(),
+        ));
+        let read_files = files.clone();
+        app.services.automation_read =
+            Some(Box::new(move |name| read_files.borrow().read_file(name)));
+        let write_files = files.clone();
+        app.services.automation_write = Some(Box::new(move |name, bytes| {
+            write_files.borrow_mut().write_file(name, bytes)
+        }));
         // Unique per page lifetime; not an authentication credential (the token is).
         let session = format!("{}-{}", js_sys::Date::now(), js_sys::Math::random());
         Some(Self {
+            files,
             token: token.to_ascii_lowercase(),
             session,
             tx,
@@ -37,12 +49,44 @@ impl BrowserControl {
         })
     }
 
-    pub fn tick(&mut self, ctx: &egui::Context) {
+    fn export_copy(&self, app: &PhotocraftApp, params: &Value) -> Result<Value, String> {
+        let name = params
+            .get("name")
+            .and_then(Value::as_str)
+            .ok_or("missing name")?;
+        let document = app.session.active().ok_or("no document")?;
+        let export = app
+            .services
+            .export
+            .as_ref()
+            .ok_or("no exporter configured")?;
+        let (bytes, warnings) = export(&document.doc, name, &Default::default())?;
+        self.files.borrow_mut().write_file(name, &bytes)?;
+        Ok(json!({"name":name,"size":bytes.len(),"warnings":warnings}))
+    }
+
+    pub fn tick(&mut self, ctx: &egui::Context, app: &mut PhotocraftApp) {
         for msg in self.inbox.borrow_mut().drain(..) {
             let Some(method) = msg.get("method").and_then(Value::as_str) else {
                 continue;
             };
             let id = msg.get("id").cloned().unwrap_or(Value::Null);
+            if method.starts_with("transfer.") {
+                let params = msg.get("params").cloned().unwrap_or(json!({}));
+                let result = if method == "transfer.export" {
+                    self.export_copy(app, &params)
+                } else {
+                    self.files.borrow_mut().call(method, &params)
+                };
+                let reply = match result {
+                    Ok(value) => json!({"ok":true,"result":value}),
+                    Err(error) => json!({"ok":false,"error":error}),
+                };
+                let (tx, rx) = mpsc::channel();
+                let _ = tx.send(reply);
+                self.replies.push((id, rx));
+                continue;
+            }
             let (request, rx) =
                 ControlRequest::new(method, msg.get("params").cloned().unwrap_or(json!({})));
             if self.tx.send(request).is_ok() {
@@ -107,6 +151,7 @@ async fn exchange(
         .headers()
         .set("Authorization", &format!("Bearer {token}"))?;
     request.headers().set("X-PhotoCraft-Session", session)?;
+    request.headers().set("X-PhotoCraft-Protocol", "2")?;
     if body.is_some() {
         request.headers().set("Content-Type", "application/json")?;
     }

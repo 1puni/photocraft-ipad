@@ -84,7 +84,7 @@ pushing; preserve other contributors' work and merge diverged histories normally
 Each checkout uses its own `target/` directory. Keep `upstream.env` and the nine
 engine patches synchronized, and regenerate dependency notices when dependencies
 change. The engine baseline is `5896f0b`; the patched tree is
-`0314c46e7585c5e313dded3b95ac2fd9bacd7e76` (equivalent to `9fe4e48`).
+`286dcf07e7d6453ade36856c95ef82bd7fe5feb3` (equivalent to `bfeec4a1a`).
 
 [The roadmap](ipad-port.md) owns upcoming workflow and physical-device acceptance.
 [Security reports](../SECURITY.md) have a private reporting route. Upstream

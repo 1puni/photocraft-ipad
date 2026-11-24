@@ -405,3 +405,27 @@ physical iPad testing must still be performed. Automated transport simulation an
 successful compilation do not establish those results. Open a new opted-in tab
 using [the setup guide](browser-control.md), preserving any unsaved old tab, then
 verify document dimensions/layers through MCP and save/reopen a layered document.
+
+### Byte transfers and explicit browser handoff
+
+The initial protocol1 page subsequently attached: real upstream MCP `ui_inspect`
+returned an empty live browser session and advancing frame counters. A viewport
+preview request timed out while later inspect requests continued to succeed;
+viewport capture is not claimed working on this tested browser path.
+
+Protocol2 adds bounded chunk transfers into the browser's existing automation
+file services. Import/export use the same services as the shared editor, with no
+picker and no host filesystem root. `browser_file.py` implements explicit local
+upload, atomic download, and export-copy through upstream MCP. `relay.release`
+retires a page's lease before a deliberate desktop/iPad handoff.
+
+Fresh checks passed: all **79** extension tests, **8** Python server/transport/
+file-client tests, formatting and native Clippy with warnings denied. The
+optimized browser build passed with `CARGO_PROFILE_WASM_RELEASE_LTO=false` for
+this local development build (source release profile unchanged). The shared
+native importer also read a four-layer PSD successfully.
+
+**Live protocol2 transfer remains pending:** the server is ready, but the new
+empty browser page must refresh to the new bundle before import, export-copy and
+saved PSD round-trip can be verified. No current browser artwork was replaced.
+A successful build or headless import does not establish live-browser file I/O.

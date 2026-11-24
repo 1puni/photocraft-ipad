@@ -25,12 +25,15 @@ class Relay:
         self.token = token
         self.lock = threading.Lock()
         self.session = None
+        self.retired = set()
         self.seen = 0
         self.pending = {}
         self.queued = deque()
 
     def poll(self, session):
         with self.lock:
+            if session in self.retired:
+                raise ValueError("this browser lease was released; use the chosen new page")
             if self.session not in (None, session):
                 raise ValueError("another browser owns this relay; restart to switch")
             self.session = session
@@ -40,6 +43,18 @@ class Relay:
                 if request["id"] in self.pending:
                     return request
             return None
+
+    def release(self):
+        with self.lock:
+            if self.pending:
+                return {"ok": False, "error": "wait for pending requests before releasing the browser"}
+            if len(self.retired) >= 32:
+                return {"ok": False, "error": "restart relay after 32 browser handoffs"}
+            if self.session is not None:
+                self.retired.add(self.session)
+            self.session = None
+            self.seen = 0
+            return {"ok": True, "result": {"released": True, "nextBrowserMayAttach": True}}
 
     def reply(self, session, request_id, reply):
         with self.lock:
@@ -75,6 +90,9 @@ class RelayHTTP(Preview):
         supplied = self.headers.get("Authorization", "")
         if not hmac.compare_digest(supplied.encode(), ("Bearer " + self.server.relay.token).encode()):
             self.send_error(403)
+            return None
+        if self.headers.get("X-PhotoCraft-Protocol") != "2":
+            self.send_error(426, "reload the editor to use the current control protocol")
             return None
         session = self.headers.get("X-PhotoCraft-Session", "")
         if not session or len(session) > 128:
@@ -159,7 +177,7 @@ class ControlTCP(socketserver.StreamRequestHandler):
                     params = msg.get("params", {})
                     if not isinstance(method, str) or not isinstance(params, dict):
                         raise ValueError("expected method string and params object")
-                    reply = self.server.relay.call(method, params)
+                    reply = self.server.relay.release() if method == "relay.release" else self.server.relay.call(method, params)
                     self.write_reply({**reply, "id": request_id})
                 except (ValueError, TypeError):
                     self.write_reply({"id": None, "ok": False, "error": "invalid JSON request"})

@@ -1,5 +1,6 @@
 //! A touch workspace on PhotoCraft's shared engine, canvas and file services.
 pub mod commands;
+pub mod control_files;
 pub mod input;
 pub mod workspace;
 
@@ -40,7 +41,7 @@ impl photocraft_web::web::BrowserWorkspace for BrowserWorkspace {
 
     fn logic(&mut self, app: &mut photocraft_ui_egui::PhotocraftApp, ctx: &egui::Context) {
         if let Some(control) = &mut self.control {
-            control.tick(ctx);
+            control.tick(ctx, app);
         }
         let mut contacts = self.contacts.borrow_mut();
         if let Some(xf) = photocraft_ui_egui::canvas::ViewXform::active(app) {
