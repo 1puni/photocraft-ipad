@@ -15,6 +15,7 @@ import threading
 import time
 from http.server import ThreadingHTTPServer
 from server import Preview, PUBLIC
+from named_sessions import Sessions
 
 MAX_REQUEST = 1 << 20
 MAX_RESPONSE = 8 << 20
@@ -23,6 +24,7 @@ MAX_RESPONSE = 8 << 20
 class Relay:
     def __init__(self, token):
         self.token = token
+        self.named = Sessions()
         self.lock = threading.Lock()
         self.session = None
         self.retired = set()
@@ -91,7 +93,7 @@ class RelayHTTP(Preview):
         if not hmac.compare_digest(supplied.encode(), ("Bearer " + self.server.relay.token).encode()):
             self.send_error(403)
             return None
-        if self.headers.get("X-PhotoCraft-Protocol") != "2":
+        if self.headers.get("X-PhotoCraft-Protocol") not in ("2", "3"):
             self.send_error(426, "reload the editor to use the current control protocol")
             return None
         session = self.headers.get("X-PhotoCraft-Session", "")
@@ -120,6 +122,8 @@ class RelayHTTP(Preview):
             self.json_response({"error": str(error)}, 409)
 
     def do_POST(self):
+        if self.path == "/control/poll":
+            return self.named_poll()
         if self.path != "/control/reply":
             self.send_error(404)
             return
@@ -133,8 +137,26 @@ class RelayHTTP(Preview):
             value = json.loads(self.rfile.read(size))
             if not isinstance(value, dict) or not isinstance(value.get("id"), str) or not isinstance(value.get("reply"), dict):
                 raise ValueError("invalid response envelope")
-            self.server.relay.reply(session, value["id"], value["reply"])
+            if self.headers.get("X-PhotoCraft-Protocol") == "3":
+                self.server.relay.named.reply(session, self.headers.get("X-PhotoCraft-Page", ""), value["id"], value["reply"])
+            else:
+                self.server.relay.reply(session, value["id"], value["reply"])
             self.json_response({"ok": True})
+        except (ValueError, TypeError) as error:
+            self.json_response({"error": str(error)}, 400)
+
+    def named_poll(self):
+        session = self.authorized_session()
+        if session is None:
+            return
+        try:
+            size = int(self.headers.get("Content-Length", "0"))
+            if not 0 < size <= 4096 or self.headers.get("X-PhotoCraft-Protocol") != "3":
+                raise ValueError("invalid session registration")
+            value = json.loads(self.rfile.read(size))
+            if not isinstance(value, dict) or value.get("id") != session or value.get("page") != self.headers.get("X-PhotoCraft-Page"):
+                raise ValueError("identity/header mismatch")
+            self.json_response(self.server.relay.named.poll(value))
         except (ValueError, TypeError) as error:
             self.json_response({"error": str(error)}, 400)
 
@@ -144,7 +166,7 @@ class RelayHTTP(Preview):
 
     def log_message(self, fmt, *args):
         # Polling is frequent. Never log credentials or document/control contents.
-        if self.path not in ("/control/next", "/control/reply"):
+        if self.path not in ("/control/next", "/control/reply", "/control/poll"):
             super().log_message(fmt, *args)
 
 
@@ -152,6 +174,7 @@ class ControlTCP(socketserver.StreamRequestHandler):
     def handle(self):
         self.connection.settimeout(40)
         authenticated = False
+        selected = None
         try:
             while True:
                 raw = self.rfile.readline(MAX_REQUEST + 1)
@@ -177,7 +200,19 @@ class ControlTCP(socketserver.StreamRequestHandler):
                     params = msg.get("params", {})
                     if not isinstance(method, str) or not isinstance(params, dict):
                         raise ValueError("expected method string and params object")
-                    reply = self.server.relay.release() if method == "relay.release" else self.server.relay.call(method, params)
+                    if method == "session.list":
+                        reply = {"ok": True, "result": {"sessions": self.server.relay.named.list()}}
+                    elif method == "session.select":
+                        try:
+                            selected = self.server.relay.named.select(params.get("id"))
+                            reply = {"ok": True, "result": {"id": selected[0], "page": selected[1]}}
+                        except (ValueError, TypeError) as error:
+                            selected = None
+                            reply = {"ok": False, "error": str(error)}
+                    elif selected is not None or self.server.relay.named.list():
+                        reply = self.server.relay.named.call(selected, method, params)
+                    else:
+                        reply = self.server.relay.release() if method == "relay.release" else self.server.relay.call(method, params)
                     self.write_reply({**reply, "id": request_id})
                 except (ValueError, TypeError):
                     self.write_reply({"id": None, "ok": False, "error": "invalid JSON request"})

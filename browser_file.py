@@ -110,11 +110,19 @@ def main():
     parser.add_argument("--cli", type=Path, default=ROOT.parent / "photocraft/target/debug/photocraft-cli")
     parser.add_argument("--bridge", default="127.0.0.1:7879")
     parser.add_argument("--token-file", type=Path, default=ROOT / ".runtime/control.token")
-    parser.add_argument("operation", choices=["open", "save", "export"])
-    parser.add_argument("path", type=Path)
+    parser.add_argument("--session", help="Exact tab id from sessions; selection is bound to this page generation")
+    parser.add_argument("operation", choices=["open", "save", "export", "sessions"])
+    parser.add_argument("path", type=Path, nargs="?")
     args = parser.parse_args()
     mcp = MCP(args.cli, args.bridge, args.token_file)
     try:
+        if args.operation == "sessions":
+            print(json.dumps(mcp.tool("control_call", {"method": "session.list", "params": {}}), ensure_ascii=False))
+            return
+        if args.path is None:
+            parser.error("path is required for open/save/export")
+        if args.session:
+            mcp.tool("control_call", {"method": "session.select", "params": {"id": args.session}})
         result = upload(mcp, args.path.resolve()) if args.operation == "open" else download(mcp, args.path.resolve(), copy=args.operation == "export")
         print(json.dumps(result, ensure_ascii=False))
     finally:

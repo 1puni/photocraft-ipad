@@ -2,13 +2,23 @@
 use photocraft_ui_egui::{ControlRequest, PhotocraftApp};
 use serde_json::{Value, json};
 use std::{cell::Cell, rc::Rc, sync::mpsc};
-use wasm_bindgen::{JsCast as _, JsValue};
+use wasm_bindgen::{JsCast as _, JsValue, prelude::wasm_bindgen};
+
+#[wasm_bindgen(module = "/src/session_identity.js")]
+extern "C" {
+    fn identity() -> String;
+    fn metadata(name: &str) -> String;
+    fn connection(message: &str);
+    fn conflict() -> String;
+    fn connected();
+}
 use wasm_bindgen_futures::{JsFuture, spawn_local};
 
 pub struct BrowserControl {
     files: Rc<std::cell::RefCell<crate::control_files::Files>>,
     token: String,
     session: String,
+    page: String,
     tx: mpsc::Sender<ControlRequest>,
     replies: Vec<(Value, mpsc::Receiver<Value>)>,
     inbox: Rc<std::cell::RefCell<Vec<Value>>>,
@@ -35,12 +45,15 @@ impl BrowserControl {
         app.services.automation_write = Some(Box::new(move |name, bytes| {
             write_files.borrow_mut().write_file(name, bytes)
         }));
-        // Unique per page lifetime; not an authentication credential (the token is).
-        let session = format!("{}-{}", js_sys::Date::now(), js_sys::Math::random());
+        // Stable tab identity and a separate page generation; neither is a credential.
+        let ident: Value = serde_json::from_str(&identity()).ok()?;
+        let session = ident["id"].as_str()?.to_owned();
+        let page = ident["page"].as_str()?.to_owned();
         Some(Self {
             files,
             token: token.to_ascii_lowercase(),
             session,
+            page,
             tx,
             replies: Vec::new(),
             inbox: Rc::default(),
@@ -66,6 +79,17 @@ impl BrowserControl {
     }
 
     pub fn tick(&mut self, ctx: &egui::Context, app: &mut PhotocraftApp) {
+        let meta = metadata(
+            app.session
+                .active()
+                .map(|d| d.doc.name.as_str())
+                .unwrap_or(""),
+        );
+        if let Ok(value) = serde_json::from_str::<Value>(&meta) {
+            if let Some(id) = value["id"].as_str() {
+                self.session = id.to_owned();
+            }
+        }
         for msg in self.inbox.borrow_mut().drain(..) {
             let Some(method) = msg.get("method").and_then(Value::as_str) else {
                 continue;
@@ -105,9 +129,18 @@ impl BrowserControl {
             let body = json!({"id": id, "reply": reply}).to_string();
             let token = self.token.clone();
             let session = self.session.clone();
+            let page = self.page.clone();
             spawn_local(async move {
                 // Never retry a mutation: a lost response has an unknown outcome.
-                let _ = exchange("/control/reply", "POST", &token, &session, Some(&body)).await;
+                let _ = exchange(
+                    "/control/reply",
+                    "POST",
+                    &token,
+                    &session,
+                    &page,
+                    Some(&body),
+                )
+                .await;
             });
             false
         });
@@ -119,12 +152,29 @@ impl BrowserControl {
             let inbox = self.inbox.clone();
             let token = self.token.clone();
             let session = self.session.clone();
+            let page = self.page.clone();
             let ctx = ctx.clone();
             spawn_local(async move {
-                if let Ok(value) = exchange("/control/next", "GET", &token, &session, None).await {
-                    if value.is_object() {
-                        inbox.borrow_mut().push(value);
+                match exchange(
+                    "/control/poll",
+                    "POST",
+                    &token,
+                    &session,
+                    &page,
+                    Some(&meta),
+                )
+                .await
+                {
+                    Ok(value) if value.get("sessionConflict").is_some() => {
+                        conflict();
                     }
+                    Ok(value) => {
+                        connected();
+                        if value.get("method").is_some() {
+                            inbox.borrow_mut().push(value);
+                        }
+                    }
+                    Err(_) => connection("Disconnected · reconnecting…"),
                 }
                 busy.set(false);
                 ctx.request_repaint();
@@ -139,6 +189,7 @@ async fn exchange(
     method: &str,
     token: &str,
     session: &str,
+    page: &str,
     body: Option<&str>,
 ) -> Result<Value, JsValue> {
     let init = web_sys::RequestInit::new();
@@ -151,7 +202,8 @@ async fn exchange(
         .headers()
         .set("Authorization", &format!("Bearer {token}"))?;
     request.headers().set("X-PhotoCraft-Session", session)?;
-    request.headers().set("X-PhotoCraft-Protocol", "2")?;
+    request.headers().set("X-PhotoCraft-Protocol", "3")?;
+    request.headers().set("X-PhotoCraft-Page", page)?;
     if body.is_some() {
         request.headers().set("Content-Type", "application/json")?;
     }

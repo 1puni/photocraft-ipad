@@ -23,9 +23,8 @@ uv run --no-project --python 3.12 python control_relay.py \
 Open `http://127.0.0.1:4877/ipad/#control=<token-file contents>` in a **new** tab.
 The fragment is opt-in and is not sent in ordinary HTTP requests. The browser
 sends the credential in an Authorization header to the same-origin relay. Keep
-the tab visible: background-tab throttling can delay control. The first browser
-session owns the relay until an explicit `relay.release` or server restart; a
-second tab cannot silently steal its requests. Ordinary URLs without the fragment do not enable control.
+the tab visible: background-tab throttling can delay control. Each tab registers a named target. List sessions and select an exact tab on
+your control connection before sending editor commands (see below). Ordinary URLs without the fragment do not enable control.
 Treat the complete opt-in URL as a credential; do not share or commit it.
 
 Use the byte-transfer helper below to open a PSD without a picker. Save the old
@@ -47,10 +46,11 @@ and `doc_inspect` read the visible session. `command_list` discovers commands;
 window screenshot path, subject to browser renderer support.
 
 For transport diagnostics, the loopback TCP endpoint accepts the existing JSON
-lines protocol: first `auth` with `params.token`, then `ui.inspect`, or
+lines protocol: first `auth` with `params.token`, then `session.list` and `session.select` with `params.id`, followed by `ui.inspect`, or
 `engine.execute` with `params.command` and `params.params`. Replies preserve IDs.
-The browser polls `/control/next` and posts `/control/reply`; both require the
-credential and its page-lifetime session identifier.
+The browser posts `/control/poll` and `/control/reply`; both require the
+credential, stable tab identifier and page-generation identifier. Older protocol-2
+builds use the single-owner `/control/next` route and `relay.release`.
 
 ## Boundaries and limitations
 
@@ -84,9 +84,9 @@ browser importer/exporter. They do not click the browser or expose a filesystem
 root to it:
 
 ```sh
-uv run --no-project --python 3.12 python browser_file.py open /explicit/input.psd
-uv run --no-project --python 3.12 python browser_file.py save /explicit/saved.psd
-uv run --no-project --python 3.12 python browser_file.py export /explicit/preview.png
+uv run --no-project --python 3.12 python browser_file.py --session <tab-id> open /explicit/input.psd
+uv run --no-project --python 3.12 python browser_file.py --session <tab-id> save /explicit/saved.psd
+uv run --no-project --python 3.12 python browser_file.py --session <tab-id> export /explicit/preview.png
 ```
 
 `open` uploads chunks, invokes upstream `doc_open`, removes the staging bytes and
@@ -107,7 +107,7 @@ The transfer protocol is exposed through existing MCP `control_call`:
 | `transfer.read` | `name`, `offset`, `length` | Base64 bytes from a complete file |
 | `transfer.remove` | `name` | Drop staged bytes |
 | `transfer.export` | `name` (extension chooses format) | Export copy into staging |
-| `relay.release` | `{}` | Retire current lease; next opted-in page may attach |
+| `relay.release` | `{}` | Legacy protocol 2 only: retire the current exclusive lease |
 
 Chunks are at most 512 KiB (below the upstream 1 MiB request budget after base64),
 files at most 64 MiB, and total reserved staging at most 128 MiB / 16 files.
@@ -123,14 +123,59 @@ An ordinary `/ipad/?webgl` URL gives an independent browser document. It does
 not opt into control and does not share another device's canvas automatically.
 To move the working document without a picker:
 
-1. Complete `browser_file.py save /explicit/handoff.psd` on the current controller.
-2. Invoke MCP `control_call` with `{"method":"relay.release","params":{}}`.
-   Pending requests must finish first; the retired page cannot reclaim the lease.
-3. Open the secret opt-in URL on the intended new browser. Keep old pages intact.
-4. Run `browser_file.py open /explicit/handoff.psd`, then inspect layers there.
+1. List sessions and identify the source device/tab by its exact ID.
+2. Complete `browser_file.py --session SOURCE_ID save /explicit/handoff.psd`.
+3. Open the secret opt-in URL on the intended destination browser; name its tab.
+4. List sessions again, then run `browser_file.py --session DESTINATION_ID open
+   /explicit/handoff.psd` and inspect the layers there.
 
-The same release step permits a planned refresh of a saved page. A refresh makes
-a new page-lifetime identity. A new protocol build may require restarting the
-relay; protocol2 rejects old clients rather than quietly attaching stale code.
-Preserve the old document until the new page's layer state and saved output are
+A refresh preserves the tab ID but changes the page generation. Existing control
+connections must select again; there is no queued-edit replay or automatic artwork
+restore. Keep the old document until the destination layers and saved output are
 verified. PSD transfer preserves document contents, not in-memory undo history.
+Already-open protocol-2 pages use the legacy exclusive `relay.release` handoff;
+save them before upgrading both the relay and page to protocol 3.
+
+## Named device and tab sessions (protocol 3)
+
+Each opted-in editor now shows a **Device · Tab** badge. Expand it to name the
+device and tab; the browser title includes those names and the current document.
+Device identity/name lives in local storage for this browser origin. Tab identity
+and label live in session storage and survive reload; page generation changes on
+every load. These are routing metadata, never authentication credentials. Different
+hostnames/ports and browser profiles have separate storage identities.
+
+A reload starts an empty editor, **not a recovered document**. This change does
+not add autosave, synchronization, or undo recovery. The badge says this explicitly.
+Keep using the verified file-save workflow for artwork.
+
+Discover and target the actual visible tab through existing MCP `control_call`:
+
+- `session.list`, `{}` returns IDs, device/tab names, document name, current page
+  generation, connected status and last-seen age.
+- `session.select`, `{"id":"<exact tab id>"}` binds **this MCP connection** to
+  that tab and current page generation. Then use normal `doc_inspect`, `doc_open`,
+  commands and file transfers. Other MCP clients have independent selections.
+- No named session is implicitly selected, even if there is only one. A reload
+  invalidates old selections and pending requests; select again and inspect.
+  A controller reconnect also requires reselection, preventing automatic replay
+  of mutations against another page.
+
+The file helper supports the same target selection:
+
+```sh
+uv run --no-project --python 3.12 python browser_file.py sessions
+uv run --no-project --python 3.12 python browser_file.py --session TAB_ID open /explicit/panel.psd
+uv run --no-project --python 3.12 python browser_file.py --session TAB_ID save /explicit/panel.psd
+```
+
+Keep the intended editor tab visible. A tab is offline after five seconds without
+a heartbeat. Reload can take about five seconds to reclaim its stable identity;
+a concurrent duplicated tab gets a new ID instead of sharing a document target.
+The relay retains at most 64 entries and prunes long-offline entries when full.
+Labels are descriptive, not trusted routing keys; always select the exact ID.
+
+Protocol 2 remains supported for already-open legacy pages. Its exclusive lease
+and `relay.release` are legacy behavior, not needed for named tabs. Once a relay
+has named sessions, controllers must select one explicitly. Existing old tabs do
+not gain the badge until they load the new build; save their artwork first.
