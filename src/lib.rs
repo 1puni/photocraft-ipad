@@ -11,6 +11,8 @@ mod control_web;
 mod input_web;
 #[cfg(target_arch = "wasm32")]
 mod recovery_web;
+#[cfg(target_arch = "wasm32")]
+mod studio_web;
 
 #[cfg(target_arch = "wasm32")]
 pub fn start() {
@@ -24,6 +26,7 @@ struct BrowserWorkspace {
     control: Option<control_web::BrowserControl>,
     control_attached: bool,
     recovery: recovery_web::Recovery,
+    studio: studio_web::Studio,
     workspace: workspace::TabletUi,
 }
 
@@ -48,6 +51,7 @@ impl photocraft_web::web::BrowserWorkspace for BrowserWorkspace {
         if !self.recovery.tick(app, ctx) {
             return;
         }
+        self.studio.tick(app, ctx);
         if !self.control_attached {
             self.control = control_web::BrowserControl::attach(app);
             self.control_attached = true;

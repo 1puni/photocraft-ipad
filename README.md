@@ -24,8 +24,7 @@ contributors.
   channels and paths in a free iPad browser workspace. The
   [roadmap](docs/ipad-port.md) records remaining workflows and physical-device checks.
 - **A self-hosted web photo editor:** serve the app yourself; documents are edited
-  in your browser and saved as downloads. A local recovery copy restores the tab after reload; download
-  saves remain your portable backup.
+  in your browser. Ordinary documents save as downloads; [studio-bound documents](docs/studio-documents.md) save back to their local library. A local recovery copy restores the tab after reload.
 - **A Rust and WebAssembly project to build on:** contribute to the iPad workspace
   or review the small patch series that connects it to the shared PhotoCraft engine.
 

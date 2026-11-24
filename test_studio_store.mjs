@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const storage=new Map();globalThis.sessionStorage={getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)};
+globalThis.location={search:'?studioPanel=test&studioComposition=main'};
+const m=await import('data:text/javascript;base64,'+fs.readFileSync(new URL('./src/studio_store.js',import.meta.url)).toString('base64'));
+assert.equal(JSON.parse(m.studio_config()).composition,'main');
+let calls=[];globalThis.fetch=async(url,opts={})=>{calls.push([url,opts]);return url.endsWith('/psd')?new Response(new Uint8Array([1,2]),{headers:{ETag:'version1'}}):Response.json({version:'old'});};
+const opened=await m.studio_open();assert.equal(opened.version,'version1');assert.deepEqual([...opened.bytes],[1,2]);m.studio_bind(123);
+fetch=async(url,opts)=>{assert.equal(opts.headers['If-Match'],'version1');assert.equal(opts.method,'PUT');return Response.json({saved:true,version:'version2'});};
+assert.equal(await m.studio_save(new Uint8Array([3])),'Saved to studio');assert.equal(JSON.parse(m.studio_config()).version,'version2');
+fetch=async()=>Response.json({error:'stale tab'},{status:409});await assert.rejects(m.studio_save(new Uint8Array([4])),/stale tab/);assert.equal(JSON.parse(m.studio_config()).version,'version2');
+fetch=async()=>{throw Error('offline');};await assert.rejects(m.studio_save(new Uint8Array([4])),/offline/);
+sessionStorage.setItem=()=>{throw Error('storage disabled');};
+fetch=async()=>Response.json({saved:true,version:'version3'});assert.equal(await m.studio_save(new Uint8Array([5])),'Saved to studio');
+location.search='?studioPanel=../escape&studioComposition=main';assert.throws(()=>m.studio_config(),/Invalid/);
+console.log('PASS binding, byte-version agreement, save acknowledgement, conflict/network failure, recovery metadata and invalid link');

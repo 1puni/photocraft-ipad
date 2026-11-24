@@ -118,6 +118,12 @@ means the encoder wrote to this memory store. Only a successfully completed
 helper `save` confirms an actual local file; a failed download must be retried
 before closing. Use `export` for a copy that leaves the saved-state indicator alone.
 
+## Studio documents
+
+For library-backed editing, use the [studio document link](studio-documents.md):
+it opens the saved composition on the destination device and Save writes it back
+without an agent or control token. The manual transfer below is for unbound files.
+
 ## Explicit desktop / iPad handoff
 
 An ordinary `/ipad/?webgl` URL gives an independent browser document. It does

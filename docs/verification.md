@@ -498,3 +498,30 @@ storage eviction and large-document performance remain unverified. The browser
 check used a normal reload, not an OS crash or force-killed process. Recovery is
 local to the browser origin and tab, and does not preserve undo history.
 See [browser recovery](browser-recovery.md) for behavior and checks.
+
+## Studio-bound Save — 2026-11-24
+
+Engine patch 0010 adds deferred save acknowledgement; pinned tree
+`1873a6a6dc17329b56a73b4ea468ca8a15da4924`. Final optimized build completed
+at 14:47:46 UTC. Served studio JS matches source byte-for-byte.
+
+A fresh macOS Chrome WebGL browser used a disposable synthetic pixel-layer
+document through the real local studio endpoint and same-origin proxy. Actual
+Save button and Cmd-S persisted the moved layer in the exact PSD. A delayed PUT
+proved subsequent edits stay dirty and only the captured revision reaches disk.
+An aborted request preserved disk state and a normal retry succeeded. A changed
+server version rejected the stale save visibly. Save As downloaded an independent
+PSD and persisted its detached binding. No page errors were captured. Screenshots
+were inspected at 1024×768, 768×1024 and 512×768; the status badge remains visible.
+Physical iPad/Safari acceptance of this new path is not claimed.
+
+81 extension tests, formatting, native Clippy, Wasm check, packaged build, three
+Python server/proxy tests and JS binding tests passed. The deferred engine-save
+regression, touched UI crate Clippy and architecture layering checks passed. Full
+UI tests: 835 passed, three ignored, one pre-existing failure in
+`layer_reveal::tests::a_new_active_layer_opens_its_groups_and_scrolls_into_view`.
+The same undo-selection assertion fails on the parent revision without patch 0010.
+It is unrelated to studio persistence and remains unresolved. Existing upstream
+Wasm dead-code warnings are unchanged. Private studio storage, HTTP, library,
+viewer and linked-layer tests also passed; their fixtures and browser evidence
+remain with that studio, not this public repository.

@@ -81,10 +81,11 @@ remain on the roadmap.
 
 Use `main` for verified batches and topic branches for ongoing work. Fetch before
 pushing; preserve other contributors' work and merge diverged histories normally.
-Each checkout uses its own `target/` directory. Keep `upstream.env` and the nine
+Each checkout uses its own `target/` directory. Keep `upstream.env` and the ten
 engine patches synchronized, and regenerate dependency notices when dependencies
 change. The engine baseline is `5896f0b`; the patched tree is
-`286dcf07e7d6453ade36856c95ef82bd7fe5feb3` (equivalent to `bfeec4a1a`).
+`1873a6a6dc17329b56a73b4ea468ca8a15da4924` (local engine `4a4977008`),
+including the deferred save acknowledgement seam.
 
 [The roadmap](ipad-port.md) owns upcoming workflow and physical-device acceptance.
 [Security reports](../SECURITY.md) have a private reporting route. Upstream
