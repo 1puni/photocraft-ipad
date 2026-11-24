@@ -467,3 +467,34 @@ Physical iPad, landscape/Split View badge layout, document autosave/recovery and
 live browser duplicate-tab handling were not validated in this batch. Duplicate
 tab conflict handling is covered by automated identity tests. This is explicit
 routing and reconnect identity, not document synchronization or recovery.
+
+## Browser autosave and reload recovery — 2026-11-24
+
+The named-session batch above has been extended with local document recovery;
+its earlier “no document autosave” limitation is superseded by this batch.
+
+A fresh Zen/macOS WebGL tab loaded a private six-layer 1505 × 1045 PSD through
+MCP. One layer was renamed, moved by (7, 3), and set to 0.73 opacity. After the
+badge reported a committed local autosave, the page was reloaded. The same tab
+ID reconnected with a new page generation. MCP readback confirmed all six layer
+records, active layer, selection and dimensions matched the pre-reload state.
+PNG exports before/after were byte-identical (SHA-256
+`c0ee3f3e93b0f7527ac228aed058b47fb119d5c313495744ab3d18114393226a`).
+The source PSD and other artwork tabs were not modified.
+
+All 81 native tests passed. The strengthened native recovery round-trip also
+passed separately with nonempty pixels, hidden/transparent translated layers,
+two documents, active selection, exact native-bundle comparison, and corrupt
+snapshot rejection. JavaScript tests with fake-indexeddb 6.2.8 passed for atomic
+reload, independent tabs, duplicate-tab fork, stale-page write rejection,
+transaction abort retaining the old snapshot, empty workspace persistence,
+blocked session identity and the pending-change reload guard. Existing identity
+tests passed. Clippy, formatting, WASM check and packaged release build passed;
+existing upstream dead-code warnings remain. Served JS modules were compared
+byte-for-byte with the reviewed source.
+
+Physical iPad reload/suspension, landscape/Split View badge layout, browser
+storage eviction and large-document performance remain unverified. The browser
+check used a normal reload, not an OS crash or force-killed process. Recovery is
+local to the browser origin and tab, and does not preserve undo history.
+See [browser recovery](browser-recovery.md) for behavior and checks.

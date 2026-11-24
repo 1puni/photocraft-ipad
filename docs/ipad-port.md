@@ -57,4 +57,5 @@ Chrome: create, paint, undo/redo, panel toggle and PSD download verified. Origin
 An opt-in browser transport now connects the shared control queue to the existing
 MCP bridge; see [browser control](browser-control.md). Verify a separate browser
 session before switching from an unsaved editor. Filesystem open/save authority,
-automatic recovery and physical-iPad transport verification remain separate work.
+tab-local IndexedDB recovery is implemented; physical-iPad recovery and transport
+verification remain separate work. See [browser recovery](browser-recovery.md).

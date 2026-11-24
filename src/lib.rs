@@ -2,12 +2,15 @@
 pub mod commands;
 pub mod control_files;
 pub mod input;
+pub mod recovery;
 pub mod workspace;
 
 #[cfg(target_arch = "wasm32")]
 mod control_web;
 #[cfg(target_arch = "wasm32")]
 mod input_web;
+#[cfg(target_arch = "wasm32")]
+mod recovery_web;
 
 #[cfg(target_arch = "wasm32")]
 pub fn start() {
@@ -19,6 +22,8 @@ pub fn start() {
 struct BrowserWorkspace {
     contacts: input_web::Shared,
     control: Option<control_web::BrowserControl>,
+    control_attached: bool,
+    recovery: recovery_web::Recovery,
     workspace: workspace::TabletUi,
 }
 
@@ -31,7 +36,7 @@ impl photocraft_web::web::BrowserWorkspace for BrowserWorkspace {
         app: &mut photocraft_ui_egui::PhotocraftApp,
     ) {
         input_web::install(canvas, ctx, self.contacts.clone(), app.stylus.feed.clone());
-        self.control = control_web::BrowserControl::attach(app);
+        self.recovery.start(ctx);
     }
 
     fn raw_input(&mut self, raw: &mut egui::RawInput) {
@@ -40,6 +45,13 @@ impl photocraft_web::web::BrowserWorkspace for BrowserWorkspace {
     }
 
     fn logic(&mut self, app: &mut photocraft_ui_egui::PhotocraftApp, ctx: &egui::Context) {
+        if !self.recovery.tick(app, ctx) {
+            return;
+        }
+        if !self.control_attached {
+            self.control = control_web::BrowserControl::attach(app);
+            self.control_attached = true;
+        }
         if let Some(control) = &mut self.control {
             control.tick(ctx, app);
         }

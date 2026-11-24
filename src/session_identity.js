@@ -21,12 +21,12 @@ function paint(message) {
       const row=document.createElement('label');row.textContent=title;const input=document.createElement('input');input.value=state[key];input.maxLength=80;input.setAttribute('aria-label',title+' name');input.addEventListener('change',()=>{state[key]=input.value.trim().slice(0,80)||title;input.value=state[key];persist();paint('Connecting…');});row.append(input);panel.append(row);
     }
     label=document.createElement('p');status=document.createElement('p');panel.append(label,status);
-    const note=document.createElement('p');note.textContent='Tab identity survives reload. Artwork does not: save your document before reloading.';panel.append(note);document.body.append(panel);
+    const note=document.createElement('p');note.id='pc-recovery';note.textContent='Checking local recovery…';panel.append(note);document.body.append(panel);
   }
-  const title=`${state.deviceName} · ${state.tabName}`;button.textContent=title;label.textContent=(state.document||'No document')+' · '+state.id.slice(-8);status.textContent=message;document.title=`${title} — ${state.document||'PhotoCraft'}`;
+  const title=`${state.deviceName} · ${state.tabName}`;button.dataset.sessionLabel=title;button.textContent=title+(document.documentElement?.dataset?.recoveryState ? ' · '+document.documentElement.dataset.recoveryState : '');label.textContent=(state.document||'No document')+' · '+state.id.slice(-8);status.textContent=message;document.title=`${title} — ${state.document||'PhotoCraft'}`;
 }
 export function identity() { paint('Connecting…');return JSON.stringify(state); }
-export function metadata(name) { state.document=String(name).slice(0,160);return JSON.stringify(state); }
+export function metadata(name) { const next=String(name).slice(0,160);if(state.document!==next){state.document=next;if(button)paint(status.textContent);}return JSON.stringify(state); }
 export function connection(message) { paint(message); }
 export function conflict() {
   // A duplicated tab inherits sessionStorage. A real reload stops the old heartbeat;
@@ -46,3 +46,8 @@ window.addEventListener?.('storage', event => {
     }
   }
 });
+
+export function recovery_identity(id) {
+  if (state.id!==id) {state.id=id;state.tabName=(state.tabName+' copy').slice(0,80);persist();}
+  paint('Local session');
+}

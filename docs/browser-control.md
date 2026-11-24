@@ -65,7 +65,8 @@ builds use the single-owner `/control/next` route and `relay.release`.
 - Requests are capped at 1 MiB, responses at 8 MiB, pending requests at 32.
   Disconnected browsers fail before dispatch. Timed-out queued requests expire;
   an already-dispatched command may finish. Inspect before retrying an edit.
-- No automatic recovery or reconnect-to-another-tab is added. File chunks have
+- Tab-local recovery is described in [browser recovery](browser-recovery.md).
+  Control never reconnects to a different tab automatically. File chunks have
   explicit offsets; identical repeated chunks are idempotent. Document edits
   must be inspected before retrying an unknown outcome.
 - The shared UI may expose native-only methods; unsupported browser operations
@@ -130,8 +131,8 @@ To move the working document without a picker:
    /explicit/handoff.psd` and inspect the layers there.
 
 A refresh preserves the tab ID but changes the page generation. Existing control
-connections must select again; there is no queued-edit replay or automatic artwork
-restore. Keep the old document until the destination layers and saved output are
+connections must select again; there is no queued-edit replay. Local autosave restores the last committed
+recovery copy before the control connection attaches. Keep the old document until the destination layers and saved output are
 verified. PSD transfer preserves document contents, not in-memory undo history.
 Already-open protocol-2 pages use the legacy exclusive `relay.release` handoff;
 save them before upgrading both the relay and page to protocol 3.
@@ -145,9 +146,9 @@ and label live in session storage and survive reload; page generation changes on
 every load. These are routing metadata, never authentication credentials. Different
 hostnames/ports and browser profiles have separate storage identities.
 
-A reload starts an empty editor, **not a recovered document**. This change does
-not add autosave, synchronization, or undo recovery. The badge says this explicitly.
-Keep using the verified file-save workflow for artwork.
+A reload restores this tab’s last committed [local recovery copy](browser-recovery.md).
+It does not synchronize devices or restore undo history. Keep using the file-save
+workflow for portable backups and cross-device handoff.
 
 Discover and target the actual visible tab through existing MCP `control_call`:
 

@@ -24,8 +24,8 @@ contributors.
   channels and paths in a free iPad browser workspace. The
   [roadmap](docs/ipad-port.md) records remaining workflows and physical-device checks.
 - **A self-hosted web photo editor:** serve the app yourself; documents are edited
-  in your browser and saved as downloads. Save before closing, as automatic
-  recovery is not yet available.
+  in your browser and saved as downloads. A local recovery copy restores the tab after reload; download
+  saves remain your portable backup.
 - **A Rust and WebAssembly project to build on:** contribute to the iPad workspace
   or review the small patch series that connects it to the shared PhotoCraft engine.
 
@@ -139,7 +139,9 @@ a secure origin. The launch page also includes a Pencil diagnostic pad showing
 the pressure, tilt and samples the browser actually delivers.
 
 Documents are edited in your browser. Save downloads a file to keep in Files;
-save before closing or reloading, as automatic recovery is not yet available.
+the browser also autosaves a native layered recovery copy for each tab. Wait for
+**Recovery ready** before reloading. See [browser recovery](docs/browser-recovery.md)
+for storage scope and limitations.
 
 `setup.sh` uses the exact public upstream revision and patches recorded in this
 repo. It preserves existing checkouts and refuses a mismatched source tree.
@@ -152,7 +154,7 @@ The workspace and input policies have automated coverage; browser checks include
 saved swatches, mask painting, retouching, layer targeting through resizing, and
 multi-layer PSD save/reopen. The next pass is measured
 physical Pencil testing, longer PSD workflows, remaining touch dialogs and
-recovery. The [roadmap](docs/ipad-port.md) and [test record](docs/verification.md)
+physical-iPad recovery checks. The [roadmap](docs/ipad-port.md) and [test record](docs/verification.md)
 keep the detail in one place.
 
 Development happens in this repository. Build and run the workspace locally;
