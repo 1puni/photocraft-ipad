@@ -284,7 +284,7 @@ impl TabletUi {
             self.command(app, ui, "Select subject", "select.subject");
         }
         if tool == Tool::Move {
-            self.command(app, ui, "Free transform", "edit.freeTransform");
+            self.transform_entry(app, ui);
         }
     }
 }

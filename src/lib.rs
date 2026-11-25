@@ -38,6 +38,8 @@ impl photocraft_web::web::BrowserWorkspace for BrowserWorkspace {
         ctx: &egui::Context,
         app: &mut photocraft_ui_egui::PhotocraftApp,
     ) {
+        // Direct manipulation is the tablet default; Move settings can hide it.
+        app.ui.tool_options.move_show_transform = true;
         input_web::install(canvas, ctx, self.contacts.clone(), app.stylus.feed.clone());
         self.recovery.start(ctx);
     }

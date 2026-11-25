@@ -525,3 +525,27 @@ It is unrelated to studio persistence and remains unresolved. Existing upstream
 Wasm dead-code warnings are unchanged. Private studio storage, HTTP, library,
 viewer and linked-layer tests also passed; their fixtures and browser evidence
 remain with that studio, not this public repository.
+
+## Discoverable layer transforms — 2026-11-25
+
+Move now starts with visible transform handles in the browser workspace. The
+Move context bar and layer properties expose Resize / Rotate and Warp. Active
+transforms have a touch-sized mode menu for resize/rotation, skew, distortion,
+perspective and warp, plus gesture hints and the existing Apply/Cancel actions.
+Returning from warp explicitly says Discard warp; Apply preserves it instead.
+The controls reuse the engine's sessions and commands without an engine patch.
+
+All 82 extension tests, formatting and native Clippy passed. The new UI regression
+runs at 1194×834, 834×1194 and 507×768: it enters through the visible control,
+drags a resize corner, applies, undoes to the exact original document, switches
+to Distort and Warp, cancels without document changes, and starts Warp directly.
+It checks mode/Apply/Cancel bounds and 44-point heights at every size. Pointer
+drags are synthetic, not physical Pencil evidence. Browser visual inspection
+was blocked by the unavailable computer-use browser host; physical iPad/Safari
+acceptance remains pending.
+
+Wasm check and the optimized packaged build passed (10:17 UTC); existing upstream
+dead-code warnings remain. The existing LAN listener on port 4878 returns HTTP
+200, with index HTML and compiled WASM byte-identical to the new local package.
+This proves distribution, not browser execution. Save before reloading existing
+tabs to adopt the build; no artwork was modified during verification.

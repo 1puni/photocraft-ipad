@@ -889,3 +889,112 @@ fn rail_colour_chips_open_the_correct_target_without_changing_colours() {
         );
     }
 }
+
+#[test]
+fn transform_controls_resize_apply_undo_cancel_and_change_modes_at_tablet_sizes() {
+    use egui_kittest::{Harness, kittest::Queryable};
+    use photocraft_ui_egui::{canvas::ToolEvent, state::TransformMode, transform_tool};
+    for size in [vec2(1194., 834.), vec2(834., 1194.), vec2(507., 768.)] {
+        let mut app = app();
+        app.run(
+            "file.new",
+            json!({"width":256,"height":256,"background":"transparent"}),
+        )
+        .unwrap();
+        app.run(
+            "select.rect",
+            json!({"x":32,"y":32,"width":128,"height":128}),
+        )
+        .unwrap();
+        app.run("edit.fill", json!({"color":"#ff0000"})).unwrap();
+        app.run("select.deselect", json!({})).unwrap();
+        app.ui.tool = Tool::Move;
+        let before = app.session.active().unwrap().doc.clone();
+        let mut h = Harness::builder().with_size(size).build_ui_state(
+            |ui, (app, w): &mut (PhotocraftApp, TabletUi)| w.show(app, ui),
+            (app, TabletUi::default()),
+        );
+        h.run_steps(3);
+        h.get_by_label("Resize / Rotate").click();
+        h.run_steps(3);
+        let original = h.state().0.ui.transform.as_ref().unwrap().quad;
+        for event in [
+            ToolEvent::Down {
+                x: original[2][0],
+                y: original[2][1],
+                pressure: 1.,
+            },
+            ToolEvent::Up {
+                x: original[2][0] + 32.,
+                y: original[2][1] + 32.,
+            },
+        ] {
+            assert!(transform_tool::pointer(
+                &mut h.state_mut().0,
+                event,
+                egui::Modifiers::NONE
+            ));
+        }
+        assert_ne!(h.state().0.ui.transform.as_ref().unwrap().quad, original);
+        h.run_steps(3);
+        for label in [
+            "Mode: Resize / Rotate",
+            "Apply transform",
+            "Cancel transform",
+        ] {
+            let r = h.get_by_label(label).rect();
+            assert!(
+                r.height() >= 44. && r.left() >= 0. && r.right() <= size.x && r.bottom() <= size.y,
+                "{label}: {r:?} at {size:?}"
+            );
+        }
+        h.get_by_label("Apply transform").click();
+        h.run_steps(3);
+        assert!(h.state().0.ui.transform.is_none());
+        assert_ne!(h.state().0.session.active().unwrap().doc, before);
+        h.get_by_label("Undo").click();
+        h.run_steps(3);
+        assert_eq!(h.state().0.session.active().unwrap().doc, before);
+        h.get_by_label("Resize / Rotate").click();
+        h.run_steps(3);
+        h.get_by_label("Mode: Resize / Rotate").click();
+        h.run_steps(3);
+        h.get_by_label("Distort").click();
+        h.run_steps(3);
+        assert_eq!(
+            h.state().0.ui.transform.as_ref().unwrap().mode,
+            TransformMode::Distort
+        );
+        h.get_by_label("Mode: Distort").click();
+        h.run_steps(3);
+        h.get_by_label("Warp").click();
+        h.run_steps(3);
+        assert!(h.state().0.ui.transform.as_ref().unwrap().warp.is_some());
+        let warp_before = h.state().0.ui.transform.as_ref().unwrap().warp.clone();
+        for event in [
+            ToolEvent::Down {
+                x: original[0][0],
+                y: original[0][1],
+                pressure: 1.,
+            },
+            ToolEvent::Up {
+                x: original[0][0] + 25.,
+                y: original[0][1] + 15.,
+            },
+        ] {
+            assert!(transform_tool::pointer(
+                &mut h.state_mut().0,
+                event,
+                egui::Modifiers::NONE
+            ));
+        }
+        assert_ne!(h.state().0.ui.transform.as_ref().unwrap().warp, warp_before);
+        h.get_by_label("Cancel transform").click();
+        h.run_steps(3);
+        assert!(h.state().0.ui.transform.is_none());
+        assert_eq!(h.state().0.session.active().unwrap().doc, before);
+        h.get_by_label("Warp").click();
+        h.run_steps(3);
+        assert!(h.state().0.ui.transform.as_ref().unwrap().warp.is_some());
+    }
+}

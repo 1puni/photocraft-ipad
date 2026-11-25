@@ -59,3 +59,14 @@ MCP bridge; see [browser control](browser-control.md). Verify a separate browser
 session before switching from an unsaved editor. Filesystem open/save authority,
 tab-local IndexedDB recovery is implemented; physical-iPad recovery and transport
 verification remain separate work. See [browser recovery](browser-recovery.md).
+
+### Layer transform entry
+
+Select a layer and choose Move: resize handles are visible by default. Drag a
+corner to resize proportionally, an edge for one axis, or just outside the box
+to rotate. Alternatively tap **Resize / Rotate** or **Warp** in the bottom bar;
+these actions are also in layer properties. The active **Mode** menu exposes
+Skew, Distort and Perspective without keyboard modifiers. Apply keeps the edit;
+Cancel drops the session. To keep a warp before resizing again, Apply it first;
+**Discard warp** explicitly drops the mesh. Move settings can hide idle handles.
+Pencil manipulates the canvas; fingers retain canvas pan/zoom behavior.

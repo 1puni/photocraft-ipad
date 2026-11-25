@@ -763,6 +763,7 @@ impl TabletUi {
             );
         }
         ui.strong("Active layer properties");
+        ui.horizontal_wrapped(|ui| self.transform_entry(app, ui));
         ui.add_enabled_ui(!background, |ui| {
             ui.horizontal(|ui| {
                 let label = ui.label("Layer name");

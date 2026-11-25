@@ -8,6 +8,7 @@ mod mask_controls;
 mod navigation;
 mod options;
 mod sheets;
+mod transform;
 
 use egui::{Button, Frame, Ui, vec2};
 use photocraft_ui_egui::{PhotocraftApp, menus, state::Tool, theme::Tokens};
@@ -276,6 +277,7 @@ impl TabletUi {
                         self.inspector_open = true;
                     }
                     if app.ui.transform.is_some() {
+                        self.transform_modes(app, ui);
                         if button(ui, "Apply transform", false).clicked() {
                             photocraft_ui_egui::transform_tool::commit(app);
                         }
@@ -296,6 +298,8 @@ impl TabletUi {
                         if button(ui, "Cancel text", false).clicked() {
                             photocraft_ui_egui::type_tool::cancel(app);
                         }
+                    } else if app.ui.tool == Tool::Move {
+                        self.transform_entry(app, ui);
                     } else if app.ui.tool.is_brushlike() {
                         if matches!(app.ui.tool, Tool::CloneStamp | Tool::Healing) {
                             self.source_button(app, ui);
