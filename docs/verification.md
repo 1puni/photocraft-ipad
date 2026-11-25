@@ -642,3 +642,10 @@ and brush-opacity layouts and retained images with synthetic artwork. The mask
 panel keeps explicit Deselect available when the shared Keep command retains a
 selection, preventing the user from mistaking constrained painting for a broken
 brush. Browser execution and physical Pencil acceptance remain unverified.
+
+Final formatting, native Clippy and Wasm checks passed. The optimized package
+completed at 14:48 UTC; existing loopback (4877) and LAN (4878) listeners returned
+HTTP 200 for HTML and WASM, byte-identical to that package. The source batch is
+`0ce3fc4`. Existing upstream dead-code warnings remain. No shared engine source
+changed in this pass. Save work before reloading to adopt it. No user artwork was
+opened or modified, and served-file checks do not prove browser execution.
