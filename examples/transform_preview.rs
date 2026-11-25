@@ -97,5 +97,42 @@ fn main() {
             .unwrap()
             .save(format!("{out}/{name}-crop.png"))
             .unwrap();
+        h.get_by_label("Cancel").click();
+        h.run_steps(3);
+        h.state_mut().app.ui.tool = Tool::RectMarquee;
+        h.state_mut()
+            .app
+            .run(
+                "select.rect",
+                json!({"x":240,"y":180,"width":200,"height":180}),
+            )
+            .unwrap();
+        h.run_steps(8);
+        h.render()
+            .unwrap()
+            .save(format!("{out}/{name}-selection.png"))
+            .unwrap();
+        h.get_by_label("Make mask").click();
+        h.run_steps(3);
+        h.get_by_label("Keep selected area").click();
+        h.run_steps(8);
+        h.render()
+            .unwrap()
+            .save(format!("{out}/{name}-mask.png"))
+            .unwrap();
+        h.get_by_label("Paint mask").scroll_to_me();
+        h.run_steps(3);
+        h.get_by_label("Paint mask").click();
+        h.run_steps(8);
+        h.render()
+            .unwrap()
+            .save(format!("{out}/{name}-brush.png"))
+            .unwrap();
+        h.get_by_label("Opacity: 100%").click();
+        h.run_steps(5);
+        h.render()
+            .unwrap()
+            .save(format!("{out}/{name}-brush-opacity.png"))
+            .unwrap();
     }
 }

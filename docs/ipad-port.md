@@ -41,8 +41,10 @@ engine/Undo paths and retain rendered evidence; physical-device acceptance must
 remain distinct from synthetic tests.
 
 Visible layer rotation and a focused [crop workflow](crop-workflow.md) continue
-the transform work. Next priorities are selection-to-mask editing and brush
-controls at narrow widths, followed by document switching/recovery clarity.
+the transform work. The [selection-to-mask and brush pass](selection-and-brush.md)
+now adds explicit mask creation/painting and compact brush controls at narrow
+widths. Next priorities are document switching/recovery clarity and physical
+iPad acceptance of these editing journeys.
 The acceptance matrix remains the wider backlog; individual code and build
 receipts belong in the verification record.
 

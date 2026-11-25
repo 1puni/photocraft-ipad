@@ -695,7 +695,7 @@ mod tests {
                 assert_eq!(h.get_by_label("Picker").rect(), picker, "{size:?} {label}");
                 if label == "Values" {
                     let footer = h
-                        .query_all_by_label("Tool settings")
+                        .query_all_by_label("Options")
                         .map(|node| node.rect().top())
                         .fold(0., f32::max);
                     for channel in ["Red", "Green", "Blue"] {

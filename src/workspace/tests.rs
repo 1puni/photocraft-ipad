@@ -1141,3 +1141,135 @@ fn crop_presets_preview_retention_is_explicit_and_apply_undo_cancel_work() {
         }
     }
 }
+
+#[test]
+fn selection_to_mask_is_explicit_preserves_pixels_and_undo_restores_selection() {
+    use egui_kittest::{Harness, kittest::Queryable};
+    for size in [vec2(1194., 834.), vec2(834., 1194.), vec2(507., 768.)] {
+        for (label, keep) in [("Keep selected area", true), ("Hide selected area", false)] {
+            let mut app = app();
+            app.run(
+                "file.new",
+                json!({"width":32,"height":32,"background":"transparent"}),
+            )
+            .unwrap();
+            app.run("edit.fill", json!({"color":"#b75d39"})).unwrap();
+            app.run("select.rect", json!({"x":0,"y":0,"width":16,"height":32}))
+                .unwrap();
+            app.ui.tool = Tool::RectMarquee;
+            let before = app.session.active().unwrap().doc.clone();
+            let id = app.session.active().unwrap().active_layer.unwrap();
+            let mut h = Harness::builder().with_size(size).build_ui_state(
+                |ui, (app, w): &mut (PhotocraftApp, TabletUi)| w.show(app, ui),
+                (app, TabletUi::default()),
+            );
+            h.run_steps(3);
+            let top = h.get_by_label("Options").rect().top();
+            for label in ["Mode: New", "Selection", "Options", "Make mask"] {
+                let r = h.get_by_label(label).rect();
+                assert!(
+                    r.left() >= 0.
+                        && r.right() <= size.x
+                        && r.height() >= 44.
+                        && r.bottom() <= size.y
+                );
+                assert_eq!(r.top(), top);
+            }
+            h.get_by_label("Mode: New").click();
+            h.run_steps(3);
+            h.get_by_label("Subtract").click();
+            h.run_steps(3);
+            assert_eq!(h.state().0.ui.selection_mode, 2);
+            h.get_by_label("Make mask").click();
+            h.run_steps(3);
+            h.get_by_label(label).click();
+            h.run_steps(3);
+            assert!(h.state().1.message.is_empty(), "{}", h.state().1.message);
+            let doc = &h.state().0.session.active().unwrap().doc;
+            let layer = doc.layer(id).unwrap();
+            let mask = layer.mask.as_ref().unwrap();
+            assert_eq!(mask.value(4, 4) > 0.99, keep);
+            assert_eq!(mask.value(24, 4) > 0.99, !keep);
+            assert_eq!(layer.surface(), before.layer(id).unwrap().surface());
+            assert!(h.state().0.ui.mask_target);
+            assert!(h.state().1.mask_controls.is_some());
+            assert!(h.query_all_by_label("Make mask").next().is_none());
+            let masked = doc.clone();
+            h.get_by_label("Edit mask").click();
+            h.run_steps(3);
+            assert_eq!(
+                h.state().0.session.active().unwrap().doc,
+                masked,
+                "existing masks must not be replaced"
+            );
+            h.get_by_label("Paint mask").scroll_to_me();
+            h.run_steps(3);
+            h.get_by_label("Paint mask").click();
+            h.run_steps(3);
+            assert_eq!(h.state().0.ui.tool, Tool::Brush);
+            assert!(h.state().0.ui.mask_target);
+            assert_eq!(h.state().0.session.active().unwrap().doc, masked);
+            h.get_by_label("Undo").click();
+            h.run_steps(3);
+            assert_eq!(h.state().0.session.active().unwrap().doc, before);
+        }
+    }
+}
+
+#[test]
+fn brush_values_fit_narrow_widths_and_popup_changes_use_shared_settings() {
+    use egui_kittest::{Harness, kittest::Queryable};
+    for size in [vec2(1194., 834.), vec2(834., 1194.), vec2(507., 768.)] {
+        for tool in [Tool::Brush, Tool::CloneStamp, Tool::Healing] {
+            let mut app = app();
+            app.run("file.new", json!({"width":32,"height":32}))
+                .unwrap();
+            app.ui.tool = tool;
+            app.session.tools.brush.size = 5000.;
+            let size_label = format!("Size: {:.1} px", app.session.tools.brush.size);
+            let before = app.session.active().unwrap().doc.clone();
+            let mut h = Harness::builder().with_size(size).build_ui_state(
+                |ui, (app, w): &mut (PhotocraftApp, TabletUi)| w.show(app, ui),
+                (app, TabletUi::default()),
+            );
+            h.run_steps(3);
+            let top = h.get_by_label("Options").rect().top();
+            for label in [size_label.as_str(), "Opacity: 100%", "Options"] {
+                let r = h.get_by_label(label).rect();
+                assert!(
+                    r.left() >= 0.
+                        && r.right() <= size.x
+                        && r.height() >= 44.
+                        && r.bottom() <= size.y
+                );
+                assert_eq!(r.top(), top);
+            }
+            if tool != Tool::Brush {
+                let r = h.get_by_label("Set source").rect();
+                assert!(r.right() <= size.x && r.top() == top);
+                h.get_by_label("Set source").click();
+                h.run_steps(3);
+                let r = h.get_by_label("Cancel source").rect();
+                assert!(r.right() <= size.x && r.top() == top);
+                assert!(h.get_by_label("Options").rect().right() <= size.x);
+            }
+            h.get_by_label("Opacity: 100%").click();
+            h.run_steps(3);
+            let r = h
+                .get_by_role_and_label(egui::accesskit::Role::Slider, "Brush opacity")
+                .rect();
+            assert!(r.left() >= 0. && r.right() <= size.x && r.bottom() <= size.y);
+            let start = r.center();
+            h.hover_at(start);
+            h.drag_at(start);
+            h.run_steps(1);
+            h.hover_at(egui::pos2(r.left() + r.width() * 0.25, r.center().y));
+            h.run_steps(2);
+            h.drop_at(egui::pos2(r.left() + r.width() * 0.25, r.center().y));
+            h.run_steps(3);
+            assert!(h.state().0.session.tools.brush.opacity < 0.6);
+            assert!(h.state().0.session.tools.brush.opacity > 0.1);
+            assert_eq!(h.state().0.session.active().unwrap().doc, before);
+        }
+    }
+}

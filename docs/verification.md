@@ -623,3 +623,22 @@ Both existing loopback (4877) and LAN (4878) listeners returned HTTP 200 for the
 index and WASM, byte-identical to the package. Existing upstream dead-code
 warnings remain. Distribution is verified; browser execution is not. Save work
 before reloading existing tabs. No user artwork was opened or changed.
+
+## Selection-to-mask and brush controls — 2026-11-25
+
+[Selection and brush behavior](selection-and-brush.md) owns the interface choices
+and preview images. All 86 workspace tests pass, including all previous mask,
+colour, source-pick, crop and transform regressions. New tests exercise Keep/Hide
+mask creation, unchanged layer pixels, existing-mask protection, explicit Paint
+mask targeting and exact-document Undo at landscape, portrait and 507-point
+Split View sizes. Brush tests exercise live opacity slider input through shared
+settings without document mutation, plus single-row bounds at maximum brush size
+and with Clone Stamp/Healing source picking armed. Existing inspector layout tests
+now measure against the Options control in the new bar rather than its old Tool
+settings button.
+
+Real offscreen renders were produced at all three sizes. Reviewed narrow selection
+and brush-opacity layouts and retained images with synthetic artwork. The mask
+panel keeps explicit Deselect available when the shared Keep command retains a
+selection, preventing the user from mistaking constrained painting for a broken
+brush. Browser execution and physical Pencil acceptance remain unverified.

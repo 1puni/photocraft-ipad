@@ -40,3 +40,7 @@ The subsequent rotation/crop pass refreshes the transform previews and adds
 selects Keep cropped pixels. Optional theme arguments support reviewing the
 shared controls in all five engine themes. These remain original synthetic-art
 offscreen renders, not physical-device evidence.
+
+The selection/brush pass uses the same real offscreen renderer and original
+synthetic artwork. [Workflow previews](selection-and-brush.md) retain Split View
+selection and brush opacity plus portrait mask controls. No user artwork is used.

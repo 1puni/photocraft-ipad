@@ -1,4 +1,5 @@
 //! Touch chrome. Document edits always use the shared command path.
+mod brush;
 mod channels_paths;
 mod colour;
 mod command_tray;
@@ -8,6 +9,7 @@ mod layers;
 mod mask_controls;
 mod navigation;
 mod options;
+mod selection;
 mod sheets;
 mod transform;
 
@@ -268,6 +270,10 @@ impl TabletUi {
                     self.transform_bar(app, ui);
                 } else if app.ui.tool == Tool::Crop {
                     self.crop_bar(app, ui);
+                } else if photocraft_ui_egui::tool_feedback::is_selection_tool(app.ui.tool) {
+                    self.selection_bar(app, ui);
+                } else if app.ui.tool.is_brushlike() {
+                    self.brush_bar(app, ui);
                 } else {
                     ui.horizontal_wrapped(|ui| {
                         ui.strong(if self.clone_source_pick {
@@ -294,31 +300,6 @@ impl TabletUi {
                             }
                         } else if app.ui.tool == Tool::Move {
                             self.transform_entry(app, ui);
-                        } else if app.ui.tool.is_brushlike() {
-                            if matches!(app.ui.tool, Tool::CloneStamp | Tool::Healing) {
-                                self.source_button(app, ui);
-                            }
-                            let before = app.session.tools.brush.clone();
-                            let mut after = before.clone();
-                            ui.add(
-                                egui::Slider::new(&mut after.size, 0.5..=5000.)
-                                    .logarithmic(true)
-                                    .text("Size"),
-                            );
-                            ui.add(egui::Slider::new(&mut after.opacity, 0.0..=1.).text("Opacity"));
-                            photocraft_ui_egui::brush_panel::commit_gesture(
-                                app, &ctx, &before, &after,
-                            );
-                        } else if photocraft_ui_egui::tool_feedback::is_selection_tool(app.ui.tool)
-                        {
-                            for (i, label) in
-                                ["New", "Add", "Subtract", "Intersect"].iter().enumerate()
-                            {
-                                if button(ui, label, app.ui.selection_mode == i as u8).clicked() {
-                                    app.ui.selection_mode = i as u8;
-                                }
-                            }
-                            self.selection_actions(app, ui);
                         }
                         if button(ui, "Shift", self.shift).clicked() {
                             self.shift = !self.shift;
