@@ -30,6 +30,22 @@ cancelled, in-place and clipped-out drops leave the document unchanged.
 Holding a handle near a visible stack edge scrolls toward offscreen layers;
 leaving the edge or ending the drag stops it.
 
+## Ongoing UI iteration
+
+On November 25 the maintainer authorized continued independent UI refinement
+while the editor is alpha. Work through concrete editing journeys, using strong
+reference experiences and the existing theme, and keep the local build usable.
+Prioritize discoverability, direct manipulation, space for the artwork and safe
+completion/cancellation over adding more commands. Keep document edits on shared
+engine/Undo paths and retain rendered evidence; physical-device acceptance must
+remain distinct from synthetic tests.
+
+Visible layer rotation and a focused [crop workflow](crop-workflow.md) continue
+the transform work. Next priorities are selection-to-mask editing and brush
+controls at narrow widths, followed by document switching/recovery clarity.
+The acceptance matrix remains the wider backlog; individual code and build
+receipts belong in the verification record.
+
 ## Acceptance matrix
 
 | Surface | Implemented in v0.1 | Next |

@@ -7,17 +7,17 @@ impl TabletUi {
         self.command(app, ui, "Transform", "edit.freeTransform");
     }
 
-    pub(super) fn sync_transform_modifiers(&mut self, app: &PhotocraftApp) {
+    pub(super) fn sync_direct_modifiers(&mut self, app: &PhotocraftApp) {
         // Hidden virtual keyboard latches must not change direct manipulation.
         // Restore them when returning to the previous tool; real keys still work.
-        if app.ui.transform.is_some() {
-            if self.transform_modifiers.is_none() {
-                self.transform_modifiers = Some((self.shift, self.alt));
+        if app.ui.transform.is_some() || app.ui.tool == Tool::Crop {
+            if self.direct_modifiers.is_none() {
+                self.direct_modifiers = Some((self.shift, self.alt));
                 self.shift = false;
                 self.alt = false;
                 self.clone_source_pick = false;
             }
-        } else if let Some((shift, alt)) = self.transform_modifiers.take() {
+        } else if let Some((shift, alt)) = self.direct_modifiers.take() {
             self.shift = shift;
             self.alt = alt;
         }
@@ -54,7 +54,7 @@ impl TabletUi {
                         ui.close();
                     }
                 } else {
-                    ui.label("Drag inside to move, corners to resize, edges to stretch, or just outside to rotate. Two fingers navigate the canvas.");
+                    ui.label("Drag inside to move, corners to resize, edges to stretch, or the round arrow to rotate. Two fingers navigate the canvas.");
                     ui.separator();
                     for (label, id, selected) in [
                         ("Skew", "edit.transform.skew", mode == TransformMode::Skew),

@@ -579,3 +579,47 @@ The optimized packaged build completed at 10:30 UTC. The existing iPad/LAN
 listener returned HTTP 200; both index HTML and WASM matched the package by
 SHA-256. Existing upstream dead-code warnings remain. Save work before reloading
 an existing tab to adopt this build. No user document was opened or modified.
+
+## Rotation and crop workflows — 2026-11-25
+
+The next alpha UI pass adds a visible rotation control to the shared Move and
+Transform overlays, plus a focused crop bar in the iPad workspace. The owning
+behavior records are [layer transforms](layer-transforms.md) and
+[cropping](crop-workflow.md). Rotation remains a shared engine interaction;
+the workspace does not duplicate transform or crop math.
+
+All 84 extension tests passed. The crop regression exercises immediate presets,
+keep/delete pixels, Apply, exact-document Undo and Cancel at 1194×834, 834×1194
+and 507×768. Shared rotation tests enter through both idle and active controls,
+rotate, undo/redo within the session, commit and undo the document, including a
+tight viewport. All 14 final crop tests passed; the added roundoff regression
+uses a 20×77 document to verify returning to Original restores the untouched
+frame and prevents an accidental destructive no-op crop.
+
+The broader shared UI run passed 839 tests, with three ignored and the existing
+`layer_reveal::tests::a_new_active_layer_opens_its_groups_and_scrolls_into_view`
+failure. A follow-up run excluding that known baseline failure passed, including
+integration/doc tests. The final crop guard was then covered by the focused
+14-test rerun. Shared UI Clippy with `--no-deps` passed; dependency-inclusive
+Clippy remains blocked by the existing `nonminimal_bool` lint in
+`crates/text/src/fontdb.rs:71`. Neither unrelated baseline issue was changed.
+`cargo xtask layers` and `cargo xtask wasm` passed.
+
+The real offscreen workspace renderer produced selection, resize, distort, warp
+and crop images at all three sizes in Pro Medium and Studio Light. Reviewed
+rotation visibility and the narrow crop bar; retained images are linked from
+the behavior records. This uses synthetic artwork and pointer events, not a
+physical Pencil or Safari execution check. Those acceptance checks remain open.
+
+All twelve mail patches applied cleanly to the declared public baseline in a
+fresh local clone, reproducing the exact `upstream.env` source tree. No upstream
+PR was submitted. During verification the Mac exhausted disk space; only the two
+checkouts' regenerable native incremental caches were removed. Failed runs were
+retried successfully with incremental compilation disabled.
+
+Final extension formatting, native Clippy and Wasm check passed. The optimized
+packaged build completed and was verified at 11:01 UTC.
+Both existing loopback (4877) and LAN (4878) listeners returned HTTP 200 for the
+index and WASM, byte-identical to the package. Existing upstream dead-code
+warnings remain. Distribution is verified; browser execution is not. Save work
+before reloading existing tabs. No user artwork was opened or changed.

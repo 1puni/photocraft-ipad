@@ -125,19 +125,7 @@ impl TabletUi {
                 number(ui, "Opacity (%)", &mut o.fill_opacity, 1.0..=100.);
             }
             Tool::Crop => {
-                choice(
-                    ui,
-                    "Aspect ratio",
-                    &mut o.crop_ratio,
-                    &[
-                        ("", "Free"),
-                        ("original", "Original"),
-                        ("1:1", "Square"),
-                        ("4:3", "4:3"),
-                        ("3:4", "3:4"),
-                        ("16:9", "16:9"),
-                    ],
-                );
+                choice(ui, "Aspect ratio", &mut o.crop_ratio, crop::CROP_RATIOS);
                 ui.checkbox(&mut o.crop_delete, "Delete cropped pixels");
             }
             Tool::Healing | Tool::CloneStamp => {
@@ -267,6 +255,10 @@ impl TabletUi {
                 ui.checkbox(&mut o.zoom_scrubby, "Drag to zoom");
             }
             _ => {}
+        }
+        if tool == Tool::Crop && before.crop_ratio != app.ui.tool_options.crop_ratio {
+            let ratio = app.ui.tool_options.crop_ratio.clone();
+            photocraft_ui_egui::crop_ui::set_ratio(app, &ratio);
         }
         if tool == Tool::Gradient {
             photocraft_ui_egui::gradient_ui::options_changed(app, &before);

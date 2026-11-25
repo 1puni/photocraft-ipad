@@ -32,9 +32,12 @@ about scope before proposing its inclusion. Offer reusable fixes separately:
 | Pre-edit layer selection in history | `a28993e` | Capture the live selection at successful edit boundaries; preserve a coalesced gesture's original Undo target and restore merged selections |
 | Pixel-mask density and feather command | `9fe4e48` | Validated, undoable property editing for the existing compositor; explicit/active targets, coalescing, no-op handling and PSD coverage |
 | Attach live control after construction | `bfeec4a1a` | Transport seam preserving the existing session and command queue; browser relay remains in this repository |
+| Deferred native save | `4a4977008` | Keep browser downloads compatible with deferred native save |
+| Visible transform rotation | `5423c2669` | Shared canvas affordance and undo-backed gesture tests |
+| Immediate crop presets | `07b2b2c04` | Stable preview basis, untouched-frame protection and crop/undo tests |
 | iPad workspace, navigation, diagnostics and hosting | This repository | Remain here unless upstream requests otherwise |
 
-The nine source commits are preserved as mail patches in `patches/photocraft/`.
+The twelve source commits are preserved as mail patches in `patches/photocraft/`.
 They apply to the public baseline in `upstream.env`. They have not been submitted.
 Any upstream PR must follow the current guide, include the relevant upstream
 checks, and acknowledge overlapping work. The existing public `1puni/photocraft`

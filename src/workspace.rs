@@ -2,6 +2,7 @@
 mod channels_paths;
 mod colour;
 mod command_tray;
+mod crop;
 mod inspectors;
 mod layers;
 mod mask_controls;
@@ -62,7 +63,7 @@ pub struct TabletUi {
     layer_name_source: String,
     edit_gesture: u64,
     edit_pass: u64,
-    transform_modifiers: Option<(bool, bool)>,
+    direct_modifiers: Option<(bool, bool)>,
     pub shift: bool,
     pub alt: bool,
     pub clone_source_pick: bool,
@@ -108,7 +109,7 @@ impl Default for TabletUi {
             layer_name_source: String::new(),
             edit_gesture: 0,
             edit_pass: 0,
-            transform_modifiers: None,
+            direct_modifiers: None,
             shift: false,
             alt: false,
             clone_source_pick: false,
@@ -188,7 +189,7 @@ impl TabletUi {
         if !self.inspector_open || self.inspector != Inspector::Layers || self.sheet.is_some() {
             self.cancel_layer_arrange_drag();
         }
-        self.sync_transform_modifiers(app);
+        self.sync_direct_modifiers(app);
         let ctx = ui.ctx().clone();
         self.update_source_pick(app, &ctx);
         let pass = ctx.cumulative_pass_nr();
@@ -265,6 +266,8 @@ impl TabletUi {
             .show(ui, |ui| {
                 if app.ui.transform.is_some() {
                     self.transform_bar(app, ui);
+                } else if app.ui.tool == Tool::Crop {
+                    self.crop_bar(app, ui);
                 } else {
                     ui.horizontal_wrapped(|ui| {
                         ui.strong(if self.clone_source_pick {
@@ -282,14 +285,7 @@ impl TabletUi {
                             self.inspector = Inspector::Tool;
                             self.inspector_open = true;
                         }
-                        if app.ui.tool == Tool::Crop {
-                            if button(ui, "Apply crop", false).clicked() {
-                                photocraft_ui_egui::canvas::commit_crop(app);
-                            }
-                            if button(ui, "Cancel crop", false).clicked() {
-                                app.ui.crop_rect = None;
-                            }
-                        } else if app.ui.text_edit.is_some() {
+                        if app.ui.text_edit.is_some() {
                             if button(ui, "Apply text", false).clicked() {
                                 photocraft_ui_egui::type_tool::commit(app);
                             }

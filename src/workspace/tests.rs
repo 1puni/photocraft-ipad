@@ -1049,3 +1049,95 @@ fn focused_transform_keeps_actions_stable_and_restores_hidden_modifier_latches()
         assert_eq!(h.state().0.session.active().unwrap().doc, before);
     }
 }
+
+#[test]
+fn crop_presets_preview_retention_is_explicit_and_apply_undo_cancel_work() {
+    use egui_kittest::{Harness, kittest::Queryable};
+    for size in [vec2(1194., 834.), vec2(834., 1194.), vec2(507., 768.)] {
+        for keep in [false, true] {
+            let mut app = app();
+            app.run(
+                "file.new",
+                json!({"width":128,"height":96,"background":"transparent"}),
+            )
+            .unwrap();
+            app.run("edit.fill", json!({"color":"#b75d39"})).unwrap();
+            app.ui.tool = Tool::Crop;
+            let before = app.session.active().unwrap().doc.clone();
+            let mut h = Harness::builder().with_size(size).build_ui_state(
+                |ui, (app, w): &mut (PhotocraftApp, TabletUi)| w.show(app, ui),
+                (app, TabletUi::default()),
+            );
+            h.run_steps(3);
+            h.get_by_label("Crop: Free").click();
+            h.run_steps(3);
+            h.get_by_label("Square").click();
+            h.run_steps(3);
+            let square = h.state().0.ui.crop_rect;
+            assert_eq!(square, Some([16., 0., 112., 96.]));
+            let apply = h.get_by_label("Apply").rect();
+            h.get_by_label("Crop: Square").click();
+            h.run_steps(3);
+            h.get_by_label("9:16").click();
+            h.run_steps(3);
+            assert_eq!(h.get_by_label("Apply").rect(), apply);
+            h.get_by_label("Crop: 9:16").click();
+            h.run_steps(3);
+            h.get_by_label("Square").click();
+            h.run_steps(3);
+            assert_eq!(
+                h.state().0.ui.crop_rect,
+                square,
+                "preset exploration must not shrink cumulatively"
+            );
+            if keep {
+                h.get_by_label("Outside: Delete").click();
+                h.run_steps(3);
+                h.get_by_label("Keep cropped pixels").click();
+                h.run_steps(3);
+            }
+            let retention = if keep {
+                "Outside: Keep"
+            } else {
+                "Outside: Delete"
+            };
+            let mut previous = None;
+            for label in ["Crop: Square", retention, "Cancel", "Apply"] {
+                let r = h.get_by_label(label).rect();
+                assert!(
+                    r.height() >= 44.
+                        && r.left() >= 0.
+                        && r.right() <= size.x
+                        && r.bottom() <= size.y,
+                    "{label} {r:?} at {size:?}"
+                );
+                assert_eq!(r.top(), apply.top());
+                if let Some(right) = previous {
+                    assert!(r.left() >= right);
+                }
+                previous = Some(r.right());
+            }
+            assert_eq!(h.state().0.session.active().unwrap().doc, before);
+            h.get_by_label("Apply").click();
+            h.run_steps(3);
+            let st = h.state().0.session.active().unwrap();
+            assert_eq!((st.doc.size.width, st.doc.size.height), (96, 96));
+            let layer = st.doc.layer(st.active_layer.unwrap()).unwrap();
+            assert_eq!(
+                layer.surface().unwrap().content_bounds().width(),
+                if keep { 128 } else { 96 }
+            );
+            h.get_by_label("Undo").click();
+            h.run_steps(3);
+            assert_eq!(h.state().0.session.active().unwrap().doc, before);
+            h.get_by_label("Crop: Square").click();
+            h.run_steps(3);
+            h.get_by_label("16:9").click();
+            h.run_steps(3);
+            h.get_by_label("Cancel").click();
+            h.run_steps(3);
+            assert_eq!(h.state().0.session.active().unwrap().doc, before);
+            assert!(h.state().0.ui.crop_rect.is_none());
+        }
+    }
+}

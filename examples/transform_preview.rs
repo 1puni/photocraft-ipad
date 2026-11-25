@@ -25,6 +25,10 @@ fn main() {
         .nth(1)
         .unwrap_or_else(|| ".cache/transform-visuals".into());
     std::fs::create_dir_all(&out).unwrap();
+    let theme = std::env::args()
+        .nth(2)
+        .and_then(|name| photocraft_ui_egui::theme::ThemeKind::from_name(&name))
+        .unwrap_or_default();
     for (name, width, height) in [
         ("landscape", 1194., 834.),
         ("portrait", 834., 1194.),
@@ -58,6 +62,9 @@ fn main() {
                 }
             });
         h.run_steps(12);
+        let ctx = h.ctx.clone();
+        h.state_mut().app.set_theme(&ctx, theme);
+        h.run_steps(3);
         h.render()
             .unwrap()
             .save(format!("{out}/{name}-selected.png"))
@@ -73,5 +80,22 @@ fn main() {
                 .save(format!("{out}/{name}-{}.png", mode.to_lowercase()))
                 .unwrap();
         }
+        h.get_by_label("Cancel").click();
+        h.run_steps(3);
+        h.state_mut().app.ui.tool = Tool::Crop;
+        h.run_steps(8);
+        h.get_by_label("Crop: Free").click();
+        h.run_steps(3);
+        h.get_by_label("Square").click();
+        h.run_steps(3);
+        h.get_by_label("Outside: Delete").click();
+        h.run_steps(3);
+        h.get_by_label("Keep cropped pixels").click();
+        h.hover_at(egui::pos2(width - 8., 8.));
+        h.run_steps(8);
+        h.render()
+            .unwrap()
+            .save(format!("{out}/{name}-crop.png"))
+            .unwrap();
     }
 }

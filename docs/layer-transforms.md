@@ -5,7 +5,7 @@ in the pinned Layers footer. This entry also works while another tool is selecte
 **Transform** remains available in Move's context bar and layer properties.
 
 Drag inside the box to move. Corners resize proportionally, edges stretch one
-axis, and dragging just outside rotates. **Resize**, **Distort** and **Warp** are
+axis, and the round arrow handle rotates. Dragging outside still works. **Resize**, **Distort** and **Warp** are
 visible choices in a dedicated context bar. **More** contains Skew, Perspective
 and gesture guidance; an active advanced mode names itself on that button.
 **Cancel** and **Done** stay at the right edge in every mode. Done applies the
@@ -55,9 +55,11 @@ starting another transform; More → Discard warp explicitly removes its mesh.
 The workspace does not silently throw away a warp when another mode is tapped.
 
 Pencil or a mouse manipulates the object. Fingers keep the existing canvas
-navigation policy. Rotation still uses the engine's outside-box drag, rather
-than a dedicated visible rotation node. Those are remaining differences from
-reference tablet experiences, and should be assessed with actual iPad use.
+navigation policy. The rotation knob stays a constant screen size and chooses an edge with room;
+when the box tightly fills the view it can sit inside the edge. Its dedicated
+hit target still rotates there. Distort and Warp omit it. Finger manipulation
+remains a difference from reference tablet experiences and needs actual iPad
+assessment before changing the navigation policy.
 An accessibility or design award is not a substitute for that acceptance.
 
 The [verification record](verification.md#focused-transform-interface--2026-11-25)
