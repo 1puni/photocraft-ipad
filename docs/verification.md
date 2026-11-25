@@ -549,3 +549,33 @@ dead-code warnings remain. The existing LAN listener on port 4878 returns HTTP
 200, with index HTML and compiled WASM byte-identical to the new local package.
 This proves distribution, not browser execution. Save before reloading existing
 tabs to adopt the build; no artwork was modified during verification.
+
+## Focused transform interface — 2026-11-25
+
+The second design pass supersedes the first pass's generic transform toolbar.
+[Layer-transform design](layer-transforms.md) owns the reference research,
+interaction decisions and remaining limits. Resize, Distort and Warp now remain
+visible, advanced modes use More, and Cancel/Done retain their position. The
+Layers footer exposes Transform layer from any tool; New group moved to its
+properties/actions. The focused bar replaces tool settings and keyboard latches.
+
+All 83 extension tests, formatting, native Clippy and Wasm check passed. The
+revised interaction regression still verifies resize → Done → Undo, warped mesh
+editing → Cancel, and mode changes. A new test enters from Clone Stamp with an
+armed source pick and virtual modifiers, confirms source-pick cancellation and
+modifier suspension/restoration, and checks stable action rectangles through
+Skew, Perspective and Warp at 1194×834, 834×1194 and 507×768. Existing layer
+arrangement, footer, properties and mask tests continue to pass.
+
+`examples/transform_preview.rs` rendered all three sizes with the real workspace,
+CPU canvas and original synthetic artwork. Inspected landscape selection,
+Split View resizing and portrait warp; retained PNGs are linked from the design
+record. The transform bar fits one row, and the common controls remain visible
+at 507 points. This is actual offscreen rendering, not a browser or physical
+Pencil check. Browser/device acceptance remains open; no award or benchmark
+parity is claimed. Dev-only renderer features reuse already-locked packages.
+
+The optimized packaged build completed at 10:30 UTC. The existing iPad/LAN
+listener returned HTTP 200; both index HTML and WASM matched the package by
+SHA-256. Existing upstream dead-code warnings remain. Save work before reloading
+an existing tab to adopt this build. No user document was opened or modified.

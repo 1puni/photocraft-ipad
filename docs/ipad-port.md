@@ -62,11 +62,8 @@ verification remain separate work. See [browser recovery](browser-recovery.md).
 
 ### Layer transform entry
 
-Select a layer and choose Move: resize handles are visible by default. Drag a
-corner to resize proportionally, an edge for one axis, or just outside the box
-to rotate. Alternatively tap **Resize / Rotate** or **Warp** in the bottom bar;
-these actions are also in layer properties. The active **Mode** menu exposes
-Skew, Distort and Perspective without keyboard modifiers. Apply keeps the edit;
-Cancel drops the session. To keep a warp before resizing again, Apply it first;
-**Discard warp** explicitly drops the mesh. Move settings can hide idle handles.
-Pencil manipulates the canvas; fingers retain canvas pan/zoom behavior.
+Move shows on-object handles by default. The Layers footer has a direct
+**Transform layer** entry. Active transformation gets a focused, single-row bar:
+**Resize**, **Distort**, **Warp**, **More**, **Cancel** and **Done**. The
+[layer-transform design](layer-transforms.md) owns gestures, reference rationale,
+current limits and reproducible visual previews.

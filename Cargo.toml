@@ -27,7 +27,8 @@ web-sys = { version = "0.3", features = ["HtmlCanvasElement", "PointerEvent", "D
 unsafe_code = "forbid"
 
 [dev-dependencies]
-egui_kittest = "=0.36.2"
+egui_kittest = { version = "=0.36.2", features = ["wgpu", "eframe"] }
+eframe = { version = "=0.36.2", default-features = false }
 
 [profile.dev]
 opt-level = 1

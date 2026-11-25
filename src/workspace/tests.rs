@@ -915,7 +915,7 @@ fn transform_controls_resize_apply_undo_cancel_and_change_modes_at_tablet_sizes(
             (app, TabletUi::default()),
         );
         h.run_steps(3);
-        h.get_by_label("Resize / Rotate").click();
+        h.get_by_label("Transform").click();
         h.run_steps(3);
         let original = h.state().0.ui.transform.as_ref().unwrap().quad;
         for event in [
@@ -937,27 +937,21 @@ fn transform_controls_resize_apply_undo_cancel_and_change_modes_at_tablet_sizes(
         }
         assert_ne!(h.state().0.ui.transform.as_ref().unwrap().quad, original);
         h.run_steps(3);
-        for label in [
-            "Mode: Resize / Rotate",
-            "Apply transform",
-            "Cancel transform",
-        ] {
+        for label in ["Resize", "Distort", "Warp", "More", "Done", "Cancel"] {
             let r = h.get_by_label(label).rect();
             assert!(
                 r.height() >= 44. && r.left() >= 0. && r.right() <= size.x && r.bottom() <= size.y,
                 "{label}: {r:?} at {size:?}"
             );
         }
-        h.get_by_label("Apply transform").click();
+        h.get_by_label("Done").click();
         h.run_steps(3);
         assert!(h.state().0.ui.transform.is_none());
         assert_ne!(h.state().0.session.active().unwrap().doc, before);
         h.get_by_label("Undo").click();
         h.run_steps(3);
         assert_eq!(h.state().0.session.active().unwrap().doc, before);
-        h.get_by_label("Resize / Rotate").click();
-        h.run_steps(3);
-        h.get_by_label("Mode: Resize / Rotate").click();
+        h.get_by_label("Transform").click();
         h.run_steps(3);
         h.get_by_label("Distort").click();
         h.run_steps(3);
@@ -965,8 +959,6 @@ fn transform_controls_resize_apply_undo_cancel_and_change_modes_at_tablet_sizes(
             h.state().0.ui.transform.as_ref().unwrap().mode,
             TransformMode::Distort
         );
-        h.get_by_label("Mode: Distort").click();
-        h.run_steps(3);
         h.get_by_label("Warp").click();
         h.run_steps(3);
         assert!(h.state().0.ui.transform.as_ref().unwrap().warp.is_some());
@@ -989,12 +981,71 @@ fn transform_controls_resize_apply_undo_cancel_and_change_modes_at_tablet_sizes(
             ));
         }
         assert_ne!(h.state().0.ui.transform.as_ref().unwrap().warp, warp_before);
-        h.get_by_label("Cancel transform").click();
+        h.get_by_label("Cancel").click();
         h.run_steps(3);
         assert!(h.state().0.ui.transform.is_none());
         assert_eq!(h.state().0.session.active().unwrap().doc, before);
+        h.get_by_label("Transform layer").click();
+        h.run_steps(3);
         h.get_by_label("Warp").click();
         h.run_steps(3);
         assert!(h.state().0.ui.transform.as_ref().unwrap().warp.is_some());
+    }
+}
+
+#[test]
+fn focused_transform_keeps_actions_stable_and_restores_hidden_modifier_latches() {
+    use egui_kittest::{Harness, kittest::Queryable};
+    for size in [vec2(1194., 834.), vec2(834., 1194.), vec2(507., 768.)] {
+        let mut app = app();
+        app.run(
+            "file.new",
+            json!({"width":128,"height":128,"background":"transparent"}),
+        )
+        .unwrap();
+        app.run("edit.fill", json!({"color":"#b75d39"})).unwrap();
+        app.ui.tool = Tool::CloneStamp;
+        let before = app.session.active().unwrap().doc.clone();
+        let w = TabletUi {
+            shift: true,
+            alt: true,
+            clone_source_pick: true,
+            ..Default::default()
+        };
+        let mut h = Harness::builder().with_size(size).build_ui_state(
+            |ui, (app, w): &mut (PhotocraftApp, TabletUi)| w.show(app, ui),
+            (app, w),
+        );
+        h.run_steps(3);
+        h.get_by_label("Transform layer").click();
+        h.run_steps(3);
+        assert!(!h.state().1.shift && !h.state().1.alt);
+        assert_eq!(h.state().0.ui.tool, Tool::CloneStamp);
+        assert!(!h.state().1.clone_source_pick);
+        assert_eq!(h.state().0.session.active().unwrap().doc, before);
+        let done = h.get_by_label("Done").rect();
+        let cancel = h.get_by_label("Cancel").rect();
+        assert_eq!(done.top(), h.get_by_label("Resize").rect().top());
+        for (menu, choice) in [("More", "Skew"), ("Skew ▾", "Perspective")] {
+            h.get_by_label(menu).click();
+            h.run_steps(3);
+            h.get_by_label(choice).click();
+            h.run_steps(3);
+            assert_eq!(h.get_by_label("Done").rect(), done);
+            assert_eq!(h.get_by_label("Cancel").rect(), cancel);
+        }
+        let advanced = h.get_by_label("Perspective ▾").rect();
+        assert!(
+            advanced.right() <= cancel.left(),
+            "advanced mode overlaps Cancel at {size:?}"
+        );
+        h.get_by_label("Warp").click();
+        h.run_steps(3);
+        assert_eq!(h.get_by_label("Done").rect(), done);
+        assert_eq!(h.get_by_label("Cancel").rect(), cancel);
+        h.get_by_label("Cancel").click();
+        h.run_steps(3);
+        assert!(h.state().1.shift && h.state().1.alt);
+        assert_eq!(h.state().0.session.active().unwrap().doc, before);
     }
 }

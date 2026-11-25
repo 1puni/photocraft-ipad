@@ -315,14 +315,10 @@ impl TabletUi {
             self.cancel_layer_arrange_drag();
         }
         ui.horizontal(|ui| {
-            for (icon, label, cmd) in [
-                ("plus", "New layer", "layer.new.layer"),
-                ("folder-plus", "New group", "layer.new.group"),
-            ] {
-                if navigation::icon_button(ui, icon, label, false, 44.).clicked() {
-                    self.invoke(app, ui.ctx(), cmd, json!({}));
-                }
+            if navigation::icon_button(ui, "plus", "New layer", false, 44.).clicked() {
+                self.invoke(app, ui.ctx(), "layer.new.layer", json!({}));
             }
+            self.command(app, ui, "Transform layer", "edit.freeTransform");
             let active_layer = active.and_then(|id| doc.layer(id));
             let has_mask =
                 active_layer.is_some_and(|l| l.mask.is_some() || l.vector_mask.is_some());
@@ -862,6 +858,7 @@ impl TabletUi {
         ui.strong("Active layer actions");
         ui.horizontal_wrapped(|ui| {
             for (label, id) in [
+                ("New group", "layer.new.group"),
                 ("Effects…", "layer.layerStyle.blendingOptions"),
                 ("Move up", "layer.arrange.bringForward"),
                 ("Move down", "layer.arrange.sendBackward"),

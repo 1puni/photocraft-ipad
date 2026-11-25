@@ -29,3 +29,8 @@ document, saved browser palette or unrelated tab is included.
 The linked brush-studio capture remains the earlier `82be479` snapshot, made in
 Chrome at 1272×902 pixels on the same date. To reproduce it, choose Brush, then
 “All brush dynamics & preview”.
+
+The November 25 transform renders under `docs/images/transforms/` use original
+synthetic shapes created by `examples/transform_preview.rs`. They are offscreen
+renders of the actual workspace and CPU canvas at 1×, not browser screenshots or
+physical-iPad evidence. No outside artwork or personal documents are used.
