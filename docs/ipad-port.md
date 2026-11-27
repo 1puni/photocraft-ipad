@@ -30,6 +30,24 @@ cancelled, in-place and clipped-out drops leave the document unchanged.
 Holding a handle near a visible stack edge scrolls toward offscreen layers;
 leaving the edge or ending the drag stops it.
 
+## Ongoing UI iteration
+
+On November 25 the maintainer authorized continued independent UI refinement
+while the editor is alpha. Work through concrete editing journeys, using strong
+reference experiences and the existing theme, and keep the local build usable.
+Prioritize discoverability, direct manipulation, space for the artwork and safe
+completion/cancellation over adding more commands. Keep document edits on shared
+engine/Undo paths and retain rendered evidence; physical-device acceptance must
+remain distinct from synthetic tests.
+
+Visible layer rotation and a focused [crop workflow](crop-workflow.md) continue
+the transform work. The [selection-to-mask and brush pass](selection-and-brush.md)
+now adds explicit mask creation/painting and compact brush controls at narrow
+widths. Next priorities are document switching/recovery clarity and physical
+iPad acceptance of these editing journeys.
+The acceptance matrix remains the wider backlog; individual code and build
+receipts belong in the verification record.
+
 ## Acceptance matrix
 
 | Surface | Implemented in v0.1 | Next |
@@ -51,3 +69,19 @@ leaving the edge or ending the drag stops it.
 ## Preview evidence before workspace replacement
 
 Chrome: create, paint, undo/redo, panel toggle and PSD download verified. Original editor PSD saved and reopened with stroke intact. The preview has also been tried on an iPad; iPadOS 26.3 Web Inspector connects over USB. See [verification](verification.md) for build and device test results.
+
+## Local agent collaboration
+
+An opt-in browser transport now connects the shared control queue to the existing
+MCP bridge; see [browser control](browser-control.md). Verify a separate browser
+session before switching from an unsaved editor. Filesystem open/save authority,
+tab-local IndexedDB recovery is implemented; physical-iPad recovery and transport
+verification remain separate work. See [browser recovery](browser-recovery.md).
+
+### Layer transform entry
+
+Move shows on-object handles by default. The Layers footer has a direct
+**Transform layer** entry. Active transformation gets a focused, single-row bar:
+**Resize**, **Distort**, **Warp**, **More**, **Cancel** and **Done**. The
+[layer-transform design](layer-transforms.md) owns gestures, reference rationale,
+current limits and reproducible visual previews.

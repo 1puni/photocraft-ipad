@@ -376,3 +376,282 @@ disabled vector mask retained. Both browser tabs logged no errors and only the
 existing SetTheme warning. The reopened review document remains available;
 previous review documents were preserved. Port 4876 serves this build. Physical
 Pencil acceptance remains open.
+
+## Opt-in live browser control — 24 November 2026
+
+Prepared on an isolated topic branch. Existing browser documents and the original
+local preview were not reloaded or replaced. The new relay remains local; no
+hosted editor deployment or upstream submission was made.
+
+Verified:
+
+- `cargo fmt --check`.
+- `cargo test --locked`: all 77 extension tests passed.
+- `cargo clippy --locked --all-targets --no-deps -- -D warnings` passed.
+- `cargo check --target wasm32-unknown-unknown` passed; subsequent optimized
+  `./build.sh` used the lockfile and passed, including notices/package generation.
+- `uv run --no-project --python 3.12 python -m unittest test_server test_control_relay`:
+  five tests passed, including auth rejection, exclusive browser ownership,
+  exact request/reply forwarding and expiry without replay.
+- Shared UI regression `attaching_transport_preserves_live_document_and_dispatches_requests`
+  passed (one selected test, 837 filtered). The engine patch preserves the live
+  session while attaching a transport and runs an inspect request through its queue.
+- Existing upstream `photocraft-cli` built. Real MCP stdio initialize and
+  `tools/call ui_inspect` reached the relay and correctly reported no active
+  browser before a page opted in.
+
+Native builds used `CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0` to limit disk
+usage. A pre-existing unused `OPENABLE` engine constant warning appeared in the
+WASM build. No engine commands or format behavior changed.
+
+**Live acceptance remains unverified:** native browser reads worked, but New Tab,
+New Window and File-menu input attempts timed out. No live page has yet attached;
+inspect/render against a real browser document, browser save/download and
+physical iPad testing must still be performed. Automated transport simulation and
+successful compilation do not establish those results. Open a new opted-in tab
+using [the setup guide](browser-control.md), preserving any unsaved old tab, then
+verify document dimensions/layers through MCP and save/reopen a layered document.
+
+### Byte transfers and explicit browser handoff
+
+The initial protocol1 page subsequently attached: real upstream MCP `ui_inspect`
+returned an empty live browser session and advancing frame counters. A viewport
+preview request timed out while later inspect requests continued to succeed;
+viewport capture is not claimed working on this tested browser path.
+
+Protocol2 adds bounded chunk transfers into the browser's existing automation
+file services. Import/export use the same services as the shared editor, with no
+picker and no host filesystem root. `browser_file.py` implements explicit local
+upload, atomic download, and export-copy through upstream MCP. `relay.release`
+retires a page's lease before a deliberate desktop/iPad handoff.
+
+Fresh checks passed: all **79** extension tests, **8** Python server/transport/
+file-client tests, formatting and native Clippy with warnings denied. The
+optimized browser build passed with `CARGO_PROFILE_WASM_RELEASE_LTO=false` for
+this local development build (source release profile unchanged). The shared
+native importer also read a four-layer PSD successfully.
+
+**Live protocol2 file I/O verified after the new empty page refreshed:** real
+upstream MCP uploaded a 9,412,396-byte RGBA-layered PSD without a picker. Live
+`doc_inspect` reported 1516 × 1037 and all four independent layers. MCP save used
+the browser exporter and atomically downloaded a 9,174,444-byte PSD with no
+warnings. Both the shared native reader and an independent PSD parser confirmed
+the dimensions and four layers; the independent comparison found every alpha
+value in the transparent artwork layer unchanged. The original local source and
+older browser document were not replaced.
+
+MCP export-copy produced a 1,894,512-byte PNG, visually inspected with all four
+layers composed. Its normal flattened-output warning applies to the PNG copy;
+the live document and saved PSD retained their layers. Export-copy did not change
+the document save path/revision. These are actual browser import/export results,
+not transport simulations. The viewport screenshot path still timed out; use
+PNG export-copy for document previews. Physical-iPad file I/O and shared live
+canvas synchronization are not claimed; the documented lease handoff transfers
+saved document contents between independent browser sessions.
+
+
+## Named browser sessions — 2026-11-24
+
+Implementation: `1954f9e`, local release build, Zen on macOS, WebGL renderer.
+Verified in a fresh empty editor window: expand Device/Tab badge, edit tab label,
+read matching browser title and MCP session metadata, select exact tab through
+upstream MCP and successfully inspect UI. Reload retained tab ID and label while
+changing page generation; reselection and UI inspection succeeded. A second tab
+registered a distinct ID and independently editable label. The badge was visually
+checked at the desktop window's portrait-shaped viewport. No artwork was loaded
+or altered for these checks.
+
+Automated checks: 79 native tests, 22 server/relay tests, JavaScript identity
+checks (reload, separate tabs, copied-session conflict, device rename propagation,
+storage-denied fallback), cargo fmt, Clippy with warnings denied for this crate,
+WASM check, and full packaged release build passed. Existing dead-code warnings
+remain in upstream engine/CMS code. Relay tests cover independent controller
+selection, wrong-page replies, offline state, stale selection, cancellation on
+reload and timeout without replay.
+
+Physical iPad, landscape/Split View badge layout, document autosave/recovery and
+live browser duplicate-tab handling were not validated in this batch. Duplicate
+tab conflict handling is covered by automated identity tests. This is explicit
+routing and reconnect identity, not document synchronization or recovery.
+
+## Browser autosave and reload recovery — 2026-11-24
+
+The named-session batch above has been extended with local document recovery;
+its earlier “no document autosave” limitation is superseded by this batch.
+
+A fresh Zen/macOS WebGL tab loaded a private six-layer 1505 × 1045 PSD through
+MCP. One layer was renamed, moved by (7, 3), and set to 0.73 opacity. After the
+badge reported a committed local autosave, the page was reloaded. The same tab
+ID reconnected with a new page generation. MCP readback confirmed all six layer
+records, active layer, selection and dimensions matched the pre-reload state.
+PNG exports before/after were byte-identical (SHA-256
+`c0ee3f3e93b0f7527ac228aed058b47fb119d5c313495744ab3d18114393226a`).
+The source PSD and other artwork tabs were not modified.
+
+All 81 native tests passed. The strengthened native recovery round-trip also
+passed separately with nonempty pixels, hidden/transparent translated layers,
+two documents, active selection, exact native-bundle comparison, and corrupt
+snapshot rejection. JavaScript tests with fake-indexeddb 6.2.8 passed for atomic
+reload, independent tabs, duplicate-tab fork, stale-page write rejection,
+transaction abort retaining the old snapshot, empty workspace persistence,
+blocked session identity and the pending-change reload guard. Existing identity
+tests passed. Clippy, formatting, WASM check and packaged release build passed;
+existing upstream dead-code warnings remain. Served JS modules were compared
+byte-for-byte with the reviewed source.
+
+Physical iPad reload/suspension, landscape/Split View badge layout, browser
+storage eviction and large-document performance remain unverified. The browser
+check used a normal reload, not an OS crash or force-killed process. Recovery is
+local to the browser origin and tab, and does not preserve undo history.
+See [browser recovery](browser-recovery.md) for behavior and checks.
+
+## Studio-bound Save — 2026-11-24
+
+Engine patch 0010 adds deferred save acknowledgement; pinned tree
+`1873a6a6dc17329b56a73b4ea468ca8a15da4924`. Final optimized build completed
+at 14:47:46 UTC. Served studio JS matches source byte-for-byte.
+
+A fresh macOS Chrome WebGL browser used a disposable synthetic pixel-layer
+document through the real local studio endpoint and same-origin proxy. Actual
+Save button and Cmd-S persisted the moved layer in the exact PSD. A delayed PUT
+proved subsequent edits stay dirty and only the captured revision reaches disk.
+An aborted request preserved disk state and a normal retry succeeded. A changed
+server version rejected the stale save visibly. Save As downloaded an independent
+PSD and persisted its detached binding. No page errors were captured. Screenshots
+were inspected at 1024×768, 768×1024 and 512×768; the status badge remains visible.
+Physical iPad/Safari acceptance of this new path is not claimed.
+
+81 extension tests, formatting, native Clippy, Wasm check, packaged build, three
+Python server/proxy tests and JS binding tests passed. The deferred engine-save
+regression, touched UI crate Clippy and architecture layering checks passed. Full
+UI tests: 835 passed, three ignored, one pre-existing failure in
+`layer_reveal::tests::a_new_active_layer_opens_its_groups_and_scrolls_into_view`.
+The same undo-selection assertion fails on the parent revision without patch 0010.
+It is unrelated to studio persistence and remains unresolved. Existing upstream
+Wasm dead-code warnings are unchanged. Private studio storage, HTTP, library,
+viewer and linked-layer tests also passed; their fixtures and browser evidence
+remain with that studio, not this public repository.
+
+## Discoverable layer transforms — 2026-11-25
+
+Move now starts with visible transform handles in the browser workspace. The
+Move context bar and layer properties expose Resize / Rotate and Warp. Active
+transforms have a touch-sized mode menu for resize/rotation, skew, distortion,
+perspective and warp, plus gesture hints and the existing Apply/Cancel actions.
+Returning from warp explicitly says Discard warp; Apply preserves it instead.
+The controls reuse the engine's sessions and commands without an engine patch.
+
+All 82 extension tests, formatting and native Clippy passed. The new UI regression
+runs at 1194×834, 834×1194 and 507×768: it enters through the visible control,
+drags a resize corner, applies, undoes to the exact original document, switches
+to Distort and Warp, cancels without document changes, and starts Warp directly.
+It checks mode/Apply/Cancel bounds and 44-point heights at every size. Pointer
+drags are synthetic, not physical Pencil evidence. Browser visual inspection
+was blocked by the unavailable computer-use browser host; physical iPad/Safari
+acceptance remains pending.
+
+Wasm check and the optimized packaged build passed (10:17 UTC); existing upstream
+dead-code warnings remain. The existing LAN listener on port 4878 returns HTTP
+200, with index HTML and compiled WASM byte-identical to the new local package.
+This proves distribution, not browser execution. Save before reloading existing
+tabs to adopt the build; no artwork was modified during verification.
+
+## Focused transform interface — 2026-11-25
+
+The second design pass supersedes the first pass's generic transform toolbar.
+[Layer-transform design](layer-transforms.md) owns the reference research,
+interaction decisions and remaining limits. Resize, Distort and Warp now remain
+visible, advanced modes use More, and Cancel/Done retain their position. The
+Layers footer exposes Transform layer from any tool; New group moved to its
+properties/actions. The focused bar replaces tool settings and keyboard latches.
+
+All 83 extension tests, formatting, native Clippy and Wasm check passed. The
+revised interaction regression still verifies resize → Done → Undo, warped mesh
+editing → Cancel, and mode changes. A new test enters from Clone Stamp with an
+armed source pick and virtual modifiers, confirms source-pick cancellation and
+modifier suspension/restoration, and checks stable action rectangles through
+Skew, Perspective and Warp at 1194×834, 834×1194 and 507×768. Existing layer
+arrangement, footer, properties and mask tests continue to pass.
+
+`examples/transform_preview.rs` rendered all three sizes with the real workspace,
+CPU canvas and original synthetic artwork. Inspected landscape selection,
+Split View resizing and portrait warp; retained PNGs are linked from the design
+record. The transform bar fits one row, and the common controls remain visible
+at 507 points. This is actual offscreen rendering, not a browser or physical
+Pencil check. Browser/device acceptance remains open; no award or benchmark
+parity is claimed. Dev-only renderer features reuse already-locked packages.
+
+The optimized packaged build completed at 10:30 UTC. The existing iPad/LAN
+listener returned HTTP 200; both index HTML and WASM matched the package by
+SHA-256. Existing upstream dead-code warnings remain. Save work before reloading
+an existing tab to adopt this build. No user document was opened or modified.
+
+## Rotation and crop workflows — 2026-11-25
+
+The next alpha UI pass adds a visible rotation control to the shared Move and
+Transform overlays, plus a focused crop bar in the iPad workspace. The owning
+behavior records are [layer transforms](layer-transforms.md) and
+[cropping](crop-workflow.md). Rotation remains a shared engine interaction;
+the workspace does not duplicate transform or crop math.
+
+All 84 extension tests passed. The crop regression exercises immediate presets,
+keep/delete pixels, Apply, exact-document Undo and Cancel at 1194×834, 834×1194
+and 507×768. Shared rotation tests enter through both idle and active controls,
+rotate, undo/redo within the session, commit and undo the document, including a
+tight viewport. All 14 final crop tests passed; the added roundoff regression
+uses a 20×77 document to verify returning to Original restores the untouched
+frame and prevents an accidental destructive no-op crop.
+
+The broader shared UI run passed 839 tests, with three ignored and the existing
+`layer_reveal::tests::a_new_active_layer_opens_its_groups_and_scrolls_into_view`
+failure. A follow-up run excluding that known baseline failure passed, including
+integration/doc tests. The final crop guard was then covered by the focused
+14-test rerun. Shared UI Clippy with `--no-deps` passed; dependency-inclusive
+Clippy remains blocked by the existing `nonminimal_bool` lint in
+`crates/text/src/fontdb.rs:71`. Neither unrelated baseline issue was changed.
+`cargo xtask layers` and `cargo xtask wasm` passed.
+
+The real offscreen workspace renderer produced selection, resize, distort, warp
+and crop images at all three sizes in Pro Medium and Studio Light. Reviewed
+rotation visibility and the narrow crop bar; retained images are linked from
+the behavior records. This uses synthetic artwork and pointer events, not a
+physical Pencil or Safari execution check. Those acceptance checks remain open.
+
+All twelve mail patches applied cleanly to the declared public baseline in a
+fresh local clone, reproducing the exact `upstream.env` source tree. No upstream
+PR was submitted. During verification the Mac exhausted disk space; only the two
+checkouts' regenerable native incremental caches were removed. Failed runs were
+retried successfully with incremental compilation disabled.
+
+Final extension formatting, native Clippy and Wasm check passed. The optimized
+packaged build completed and was verified at 11:01 UTC.
+Both existing loopback (4877) and LAN (4878) listeners returned HTTP 200 for the
+index and WASM, byte-identical to the package. Existing upstream dead-code
+warnings remain. Distribution is verified; browser execution is not. Save work
+before reloading existing tabs. No user artwork was opened or changed.
+
+## Selection-to-mask and brush controls — 2026-11-25
+
+[Selection and brush behavior](selection-and-brush.md) owns the interface choices
+and preview images. All 86 workspace tests pass, including all previous mask,
+colour, source-pick, crop and transform regressions. New tests exercise Keep/Hide
+mask creation, unchanged layer pixels, existing-mask protection, explicit Paint
+mask targeting and exact-document Undo at landscape, portrait and 507-point
+Split View sizes. Brush tests exercise live opacity slider input through shared
+settings without document mutation, plus single-row bounds at maximum brush size
+and with Clone Stamp/Healing source picking armed. Existing inspector layout tests
+now measure against the Options control in the new bar rather than its old Tool
+settings button.
+
+Real offscreen renders were produced at all three sizes. Reviewed narrow selection
+and brush-opacity layouts and retained images with synthetic artwork. The mask
+panel keeps explicit Deselect available when the shared Keep command retains a
+selection, preventing the user from mistaking constrained painting for a broken
+brush. Browser execution and physical Pencil acceptance remain unverified.
+
+Final formatting, native Clippy and Wasm checks passed. The optimized package
+completed at 14:48 UTC; existing loopback (4877) and LAN (4878) listeners returned
+HTTP 200 for HTML and WASM, byte-identical to that package. The source batch is
+`0ce3fc4`. Existing upstream dead-code warnings remain. No shared engine source
+changed in this pass. Save work before reloading to adopt it. No user artwork was
+opened or modified, and served-file checks do not prove browser execution.

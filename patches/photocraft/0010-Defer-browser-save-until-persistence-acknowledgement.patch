@@ -1,0 +1,87 @@
+From 4a4977008a2c6cfc708bf146b95211912accfc32 Mon Sep 17 00:00:00 2001
+From: Evita Stenqvist <evita@stenqvist.co>
+Date: Tue, 24 Nov 2026 15:32:09 +0100
+Subject: [PATCH] Allow browser hosts to defer Save until persistence
+ acknowledgement
+
+---
+ crates/ui-egui/src/lib.rs | 45 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 45 insertions(+)
+
+diff --git a/crates/ui-egui/src/lib.rs b/crates/ui-egui/src/lib.rs
+index 44052e4c6..76b55ae45 100644
+--- a/crates/ui-egui/src/lib.rs
++++ b/crates/ui-egui/src/lib.rs
+@@ -185,6 +185,9 @@ pub type PickOpenFn = Box<dyn FnMut() -> Option<(String, Result<Vec<u8>, String>
+ /// File › Open's multi-file picker: the selected paths, `None` when cancelled.
+ pub type PickOpenPathsFn = Box<dyn FnMut() -> Option<Vec<String>>>;
+ pub type PickSaveFn = Box<dyn FnMut(&str) -> Option<String>>;
++/// Optional asynchronous writer. None delegates to the ordinary writer; Some queues
++/// the exact document/revision and leaves saved_revision untouched until host acknowledgement.
++pub type DeferredWriteFn = Box<dyn FnMut(u64, u64, &str, &[u8]) -> Option<Result<(), String>>>;
+ pub type WriteFn = Box<dyn FnMut(&str, &[u8]) -> Result<(), String>>;
+ /// Read bytes through the desktop control session's authorized read root.
+ pub type AutomationReadFn = Box<dyn FnMut(&str) -> Result<(String, Vec<u8>), String>>;
+@@ -247,6 +250,7 @@ pub struct Services {
+     pub pick_save: Option<PickSaveFn>,
+     /// Write bytes to a path (native) or trigger a download (web).
+     pub write: Option<WriteFn>,
++    pub deferred_write: Option<DeferredWriteFn>,
+     /// File access used only by control/MCP requests. Interactive dialogs keep
+     /// using `pick_open`, `pick_save` and `write` with the user's authority.
+     pub automation_read: Option<AutomationReadFn>,
+@@ -859,6 +863,14 @@ impl PhotocraftApp {
+         let st = self.session.active().ok_or("no document")?;
+         let export = self.services.export.as_ref().ok_or("no exporter configured")?;
+         let (bytes, warnings) = export(&st.doc, &path, settings)?;
++        if let Some(write) = self.services.deferred_write.as_mut()
++            && let Some(result) = write(st.doc.id.0, st.revision, &path, &bytes)
++        {
++            result?;
++            self.ui.status = format!("Saving {path}…");
++            self.ui.status_error = false;
++            return Ok((path, warnings));
++        }
+         let write = self.services.write.as_mut().ok_or("no writer configured")?;
+         write(&path, &bytes)?;
+         if let Some(st) = self.session.active_mut() {
+@@ -1612,3 +1624,36 @@ mod clipboard_tests {
+         assert!(h.state().session.clipboard.is_none());
+     }
+ }
++
++#[cfg(test)]
++mod deferred_save_tests {
++    use super::*;
++    use serde_json::json;
++    #[test]
++    fn queued_save_is_not_a_saved_document_and_fallback_still_saves() {
++        let services = Services {
++            export: Some(Box::new(|_, _, _| Ok((vec![1, 2, 3], vec![])))),
++            write: Some(Box::new(|_, _| Ok(()))),
++            deferred_write: Some(Box::new(|id, revision, path, bytes| {
++                assert!(id > 0);
++                assert!(revision > 0);
++                assert_eq!(bytes, [1, 2, 3]);
++                if path == "bound.psd" { Some(Ok(())) } else { None }
++            })),
++            ..Default::default()
++        };
++        let mut app = PhotocraftApp::new(Session::new(), services);
++        app.run("file.new", json!({"width":4,"height":4})).unwrap();
++        app.run("layer.new.layer", json!({})).unwrap();
++        let saved = app.session.active().unwrap().saved_revision;
++        app.save_as(Some("bound.psd".into())).unwrap();
++        assert_eq!(app.session.active().unwrap().saved_revision, saved);
++        assert!(app.ui.status.starts_with("Saving "));
++        app.services.deferred_write = Some(Box::new(|_, _, _, _| Some(Err("offline".into()))));
++        assert!(app.save_as(Some("bound.psd".into())).is_err());
++        assert_eq!(app.session.active().unwrap().saved_revision, saved);
++        app.services.deferred_write = Some(Box::new(|_, _, _, _| None));
++        app.save_as(Some("download.psd".into())).unwrap();
++        assert_eq!(app.session.active().unwrap().saved_revision, app.session.active().unwrap().revision);
++    }
++}
+-- 
+2.52.0
+

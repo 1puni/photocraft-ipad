@@ -1,4 +1,4 @@
-"""Serve the review artifacts only; the editor never uploads documents to this server."""
+"""Serve review artifacts and the explicit local studio document adapter."""
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -8,6 +8,18 @@ PUBLIC = Path(__file__).resolve().parent / "public"
 
 
 class Preview(SimpleHTTPRequestHandler):
+    def do_GET(self):
+        if self.path.startswith('/studio-api/'):
+            from studio_proxy import proxy
+            return proxy(self)
+        return super().do_GET()
+
+    def do_PUT(self):
+        if self.path.startswith('/studio-api/'):
+            from studio_proxy import proxy
+            return proxy(self)
+        self.send_error(404)
+
     def list_directory(self, path):
         self.send_error(404)
 

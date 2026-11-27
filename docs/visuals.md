@@ -29,3 +29,18 @@ document, saved browser palette or unrelated tab is included.
 The linked brush-studio capture remains the earlier `82be479` snapshot, made in
 Chrome at 1272×902 pixels on the same date. To reproduce it, choose Brush, then
 “All brush dynamics & preview”.
+
+The November 25 transform renders under `docs/images/transforms/` use original
+synthetic shapes created by `examples/transform_preview.rs`. They are offscreen
+renders of the actual workspace and CPU canvas at 1×, not browser screenshots or
+physical-iPad evidence. No outside artwork or personal documents are used.
+
+The subsequent rotation/crop pass refreshes the transform previews and adds
+`docs/images/crop/`. The same example now also opens Crop, previews Square and
+selects Keep cropped pixels. Optional theme arguments support reviewing the
+shared controls in all five engine themes. These remain original synthetic-art
+offscreen renders, not physical-device evidence.
+
+The selection/brush pass uses the same real offscreen renderer and original
+synthetic artwork. [Workflow previews](selection-and-brush.md) retain Split View
+selection and brush opacity plus portrait mask controls. No user artwork is used.

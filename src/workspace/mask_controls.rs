@@ -144,6 +144,18 @@ impl TabletUi {
                 });
                 ui.label(if linked { "Moves with the layer." } else { "Moves independently of the layer." });
                 if !enabled { ui.label("This mask is not applied."); }
+                if target == LayerTarget::Mask {
+                    ui.horizontal(|ui| {
+                        if button(ui,"Paint mask",app.ui.tool == Tool::Brush).clicked() {
+                            self.target_layer(app,ui.ctx(),layer.id,LayerTarget::Mask);
+                            if self.message.is_empty() { app.ui.tool = Tool::Brush; }
+                        }
+                        if doc.selection.is_some() && button(ui,"Deselect",false).clicked() {
+                            self.invoke(app,ui.ctx(),"select.deselect",json!({}));
+                        }
+                    });
+                    if doc.selection.is_some() { ui.label("Selection limits painting. Deselect to edit the whole mask."); }
+                }
                 self.mask_adjustment_controls(app, ui, &doc, layer, target);
                 if target == LayerTarget::Vector {
                     ui.label("Path target · vector mask. Brushes paint the layer image.");
@@ -860,7 +872,7 @@ mod tests {
             let mut h = harness(app(), size);
             let top = h.get_by_label("Back to layers").rect();
             let footer = h
-                .query_all_by_label("Tool settings")
+                .query_all_by_label("Options")
                 .map(|node| node.rect().top())
                 .fold(0., f32::max);
             for label in [

@@ -1,0 +1,62 @@
+From bfeec4a1acf711f78411771978616646a687066b Mon Sep 17 00:00:00 2001
+From: Evita Stenqvist <evita@stenqvist.co>
+Date: Tue, 24 Nov 2026 11:41:40 +0100
+Subject: [PATCH] Allow browser hosts to attach control to an existing editor
+
+---
+ crates/ui-egui/src/control.rs | 17 +++++++++++++++++
+ crates/ui-egui/src/lib.rs     |  7 ++++++-
+ 2 files changed, 23 insertions(+), 1 deletion(-)
+
+diff --git a/crates/ui-egui/src/control.rs b/crates/ui-egui/src/control.rs
+index cf99a8827..1acb4de94 100644
+--- a/crates/ui-egui/src/control.rs
++++ b/crates/ui-egui/src/control.rs
+@@ -677,6 +677,23 @@ mod tests {
+         }
+     }
+ 
++    #[test]
++    fn attaching_transport_preserves_live_document_and_dispatches_requests() {
++        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
++        let ctx = egui::Context::default();
++        app.run("file.new", json!({"width": 37, "height": 23})).unwrap();
++        let before = photocraft_engine::inspect::session(&app.session);
++        let (tx, rx) = std::sync::mpsc::channel();
++        app.attach_control(rx);
++        let (request, reply) = ControlRequest::new("ui.inspect", json!({}));
++        tx.send(request).unwrap();
++        app.drain_control(&ctx);
++        let result = reply.try_recv().unwrap();
++        assert_eq!(result["ok"], true);
++        assert_eq!(result["result"]["session"], before);
++        assert_eq!(photocraft_engine::inspect::session(&app.session), before);
++    }
++
+     #[test]
+     fn right_pointer_opens_agent_visible_selection_menu() {
+         let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+diff --git a/crates/ui-egui/src/lib.rs b/crates/ui-egui/src/lib.rs
+index db811808f..44052e4c6 100644
+--- a/crates/ui-egui/src/lib.rs
++++ b/crates/ui-egui/src/lib.rs
+@@ -596,10 +596,15 @@ impl PhotocraftApp {
+ 
+     /// Attach a control channel (requests arrive from a transport thread: TCP, stdin, tests).
+     pub fn with_control(mut self, rx: Receiver<ControlRequest>) -> Self {
+-        self.control_rx = Some(rx);
++        self.attach_control(rx);
+         self
+     }
+ 
++    /// Attach a transport after construction without replacing the live document session.
++    pub fn attach_control(&mut self, rx: Receiver<ControlRequest>) {
++        self.control_rx = Some(rx);
++    }
++
+     /// Run an engine command, reporting errors in the status bar.
+     pub fn run(&mut self, id: &str, params: Value) -> Result<Value, String> {
+         // Automation input also gates every step a command runs on its behalf (`actions.play`).
+-- 
+2.52.0
+

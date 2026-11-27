@@ -1,13 +1,17 @@
 //! Touch chrome. Document edits always use the shared command path.
+mod brush;
 mod channels_paths;
 mod colour;
 mod command_tray;
+mod crop;
 mod inspectors;
 mod layers;
 mod mask_controls;
 mod navigation;
 mod options;
+mod selection;
 mod sheets;
+mod transform;
 
 use egui::{Button, Frame, Ui, vec2};
 use photocraft_ui_egui::{PhotocraftApp, menus, state::Tool, theme::Tokens};
@@ -61,6 +65,7 @@ pub struct TabletUi {
     layer_name_source: String,
     edit_gesture: u64,
     edit_pass: u64,
+    direct_modifiers: Option<(bool, bool)>,
     pub shift: bool,
     pub alt: bool,
     pub clone_source_pick: bool,
@@ -106,6 +111,7 @@ impl Default for TabletUi {
             layer_name_source: String::new(),
             edit_gesture: 0,
             edit_pass: 0,
+            direct_modifiers: None,
             shift: false,
             alt: false,
             clone_source_pick: false,
@@ -185,6 +191,7 @@ impl TabletUi {
         if !self.inspector_open || self.inspector != Inspector::Layers || self.sheet.is_some() {
             self.cancel_layer_arrange_drag();
         }
+        self.sync_direct_modifiers(app);
         let ctx = ui.ctx().clone();
         self.update_source_pick(app, &ctx);
         let pass = ctx.cumulative_pass_nr();
@@ -259,74 +266,51 @@ impl TabletUi {
         egui::Panel::bottom("ipad-context")
             .frame(Frame::NONE.fill(t.chrome).inner_margin(8))
             .show(ui, |ui| {
-                ui.horizontal_wrapped(|ui| {
-                    ui.strong(if self.clone_source_pick {
-                        "Tap source on canvas"
-                    } else {
-                        app.ui.tool.label()
-                    });
-                    if button(
-                        ui,
-                        "Tool settings",
-                        self.inspector_open && self.inspector == Inspector::Tool,
-                    )
-                    .clicked()
-                    {
-                        self.inspector = Inspector::Tool;
-                        self.inspector_open = true;
-                    }
-                    if app.ui.transform.is_some() {
-                        if button(ui, "Apply transform", false).clicked() {
-                            photocraft_ui_egui::transform_tool::commit(app);
-                        }
-                        if button(ui, "Cancel transform", false).clicked() {
-                            photocraft_ui_egui::transform_tool::cancel(app);
-                        }
-                    } else if app.ui.tool == Tool::Crop {
-                        if button(ui, "Apply crop", false).clicked() {
-                            photocraft_ui_egui::canvas::commit_crop(app);
-                        }
-                        if button(ui, "Cancel crop", false).clicked() {
-                            app.ui.crop_rect = None;
-                        }
-                    } else if app.ui.text_edit.is_some() {
-                        if button(ui, "Apply text", false).clicked() {
-                            photocraft_ui_egui::type_tool::commit(app);
-                        }
-                        if button(ui, "Cancel text", false).clicked() {
-                            photocraft_ui_egui::type_tool::cancel(app);
-                        }
-                    } else if app.ui.tool.is_brushlike() {
-                        if matches!(app.ui.tool, Tool::CloneStamp | Tool::Healing) {
-                            self.source_button(app, ui);
-                        }
-                        let before = app.session.tools.brush.clone();
-                        let mut after = before.clone();
-                        ui.add(
-                            egui::Slider::new(&mut after.size, 0.5..=5000.)
-                                .logarithmic(true)
-                                .text("Size"),
-                        );
-                        ui.add(egui::Slider::new(&mut after.opacity, 0.0..=1.).text("Opacity"));
-                        photocraft_ui_egui::brush_panel::commit_gesture(app, &ctx, &before, &after);
-                    } else if photocraft_ui_egui::tool_feedback::is_selection_tool(app.ui.tool) {
-                        for (i, label) in ["New", "Add", "Subtract", "Intersect"].iter().enumerate()
+                if app.ui.transform.is_some() {
+                    self.transform_bar(app, ui);
+                } else if app.ui.tool == Tool::Crop {
+                    self.crop_bar(app, ui);
+                } else if photocraft_ui_egui::tool_feedback::is_selection_tool(app.ui.tool) {
+                    self.selection_bar(app, ui);
+                } else if app.ui.tool.is_brushlike() {
+                    self.brush_bar(app, ui);
+                } else {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.strong(if self.clone_source_pick {
+                            "Tap source on canvas"
+                        } else {
+                            app.ui.tool.label()
+                        });
+                        if button(
+                            ui,
+                            "Tool settings",
+                            self.inspector_open && self.inspector == Inspector::Tool,
+                        )
+                        .clicked()
                         {
-                            if button(ui, label, app.ui.selection_mode == i as u8).clicked() {
-                                app.ui.selection_mode = i as u8;
-                            }
+                            self.inspector = Inspector::Tool;
+                            self.inspector_open = true;
                         }
-                        self.selection_actions(app, ui);
-                    }
-                    if button(ui, "Shift", self.shift).clicked() {
-                        self.shift = !self.shift;
-                    }
-                    if !matches!(app.ui.tool, Tool::CloneStamp | Tool::Healing)
-                        && button(ui, "Alt", self.alt).clicked()
-                    {
-                        self.alt = !self.alt;
-                    }
-                });
+                        if app.ui.text_edit.is_some() {
+                            if button(ui, "Apply text", false).clicked() {
+                                photocraft_ui_egui::type_tool::commit(app);
+                            }
+                            if button(ui, "Cancel text", false).clicked() {
+                                photocraft_ui_egui::type_tool::cancel(app);
+                            }
+                        } else if app.ui.tool == Tool::Move {
+                            self.transform_entry(app, ui);
+                        }
+                        if button(ui, "Shift", self.shift).clicked() {
+                            self.shift = !self.shift;
+                        }
+                        if !matches!(app.ui.tool, Tool::CloneStamp | Tool::Healing)
+                            && button(ui, "Alt", self.alt).clicked()
+                        {
+                            self.alt = !self.alt;
+                        }
+                    });
+                }
                 if !self.message.is_empty() {
                     ui.horizontal_wrapped(|ui| {
                         ui.label(&self.message);

@@ -1,10 +1,18 @@
 //! A touch workspace on PhotoCraft's shared engine, canvas and file services.
 pub mod commands;
+pub mod control_files;
 pub mod input;
+pub mod recovery;
 pub mod workspace;
 
 #[cfg(target_arch = "wasm32")]
+mod control_web;
+#[cfg(target_arch = "wasm32")]
 mod input_web;
+#[cfg(target_arch = "wasm32")]
+mod recovery_web;
+#[cfg(target_arch = "wasm32")]
+mod studio_web;
 
 #[cfg(target_arch = "wasm32")]
 pub fn start() {
@@ -15,6 +23,10 @@ pub fn start() {
 #[derive(Default)]
 struct BrowserWorkspace {
     contacts: input_web::Shared,
+    control: Option<control_web::BrowserControl>,
+    control_attached: bool,
+    recovery: recovery_web::Recovery,
+    studio: studio_web::Studio,
     workspace: workspace::TabletUi,
 }
 
@@ -26,7 +38,10 @@ impl photocraft_web::web::BrowserWorkspace for BrowserWorkspace {
         ctx: &egui::Context,
         app: &mut photocraft_ui_egui::PhotocraftApp,
     ) {
+        // Direct manipulation is the tablet default; Move settings can hide it.
+        app.ui.tool_options.move_show_transform = true;
         input_web::install(canvas, ctx, self.contacts.clone(), app.stylus.feed.clone());
+        self.recovery.start(ctx);
     }
 
     fn raw_input(&mut self, raw: &mut egui::RawInput) {
@@ -34,7 +49,18 @@ impl photocraft_web::web::BrowserWorkspace for BrowserWorkspace {
         self.workspace.raw_input(raw);
     }
 
-    fn logic(&mut self, app: &mut photocraft_ui_egui::PhotocraftApp, _ctx: &egui::Context) {
+    fn logic(&mut self, app: &mut photocraft_ui_egui::PhotocraftApp, ctx: &egui::Context) {
+        if !self.recovery.tick(app, ctx) {
+            return;
+        }
+        self.studio.tick(app, ctx);
+        if !self.control_attached {
+            self.control = control_web::BrowserControl::attach(app);
+            self.control_attached = true;
+        }
+        if let Some(control) = &mut self.control {
+            control.tick(ctx, app);
+        }
         let mut contacts = self.contacts.borrow_mut();
         if let Some(xf) = photocraft_ui_egui::canvas::ViewXform::active(app) {
             contacts.area =

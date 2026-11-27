@@ -81,11 +81,20 @@ remain on the roadmap.
 
 Use `main` for verified batches and topic branches for ongoing work. Fetch before
 pushing; preserve other contributors' work and merge diverged histories normally.
-Each checkout uses its own `target/` directory. Keep `upstream.env` and the eight
+Each checkout uses its own `target/` directory. Keep `upstream.env` and the ten
 engine patches synchronized, and regenerate dependency notices when dependencies
 change. The engine baseline is `5896f0b`; the patched tree is
-`0314c46e7585c5e313dded3b95ac2fd9bacd7e76` (equivalent to `9fe4e48`).
+`1873a6a6dc17329b56a73b4ea468ca8a15da4924` (local engine `4a4977008`),
+including the deferred save acknowledgement seam.
 
 [The roadmap](ipad-port.md) owns upcoming workflow and physical-device acceptance.
 [Security reports](../SECURITY.md) have a private reporting route. Upstream
 contributions follow the [collaboration notes](upstream.md).
+
+## Local browser control topic branch — 24 November 2026
+
+A ninth patch adds a shared control attachment seam. Its engine tree is
+`286dcf07e7d6453ade36856c95ef82bd7fe5feb3`. The earlier dated release snapshot
+above remains historical. Local transport checks passed; live browser acceptance
+is still pending, as recorded in [verification](verification.md). This work does
+not alter publication or deployment authority.

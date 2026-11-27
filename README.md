@@ -24,8 +24,7 @@ contributors.
   channels and paths in a free iPad browser workspace. The
   [roadmap](docs/ipad-port.md) records remaining workflows and physical-device checks.
 - **A self-hosted web photo editor:** serve the app yourself; documents are edited
-  in your browser and saved as downloads. Save before closing, as automatic
-  recovery is not yet available.
+  in your browser. Ordinary documents save as downloads; [studio-bound documents](docs/studio-documents.md) save back to their local library. A local recovery copy restores the tab after reload.
 - **A Rust and WebAssembly project to build on:** contribute to the iPad workspace
   or review the small patch series that connects it to the shared PhotoCraft engine.
 
@@ -108,10 +107,10 @@ contributors, supplies the image editor underneath: its formats, rendering,
 brush engine and shared controls. This independent [1puni](https://1puni.com)
 project brings that foundation to a dedicated iPad workspace.
 
-Reusable engine improvements are kept as eight reviewable patches: browser host
+Reusable engine improvements are kept as nine reviewable patches: browser host
 hooks, touch controls, batched pen fidelity, responsive dialogs, layer reveal,
 multi-layer arrangement, pre-edit selection restoration on Undo, and pixel-mask
-properties. Our
+properties, and attaching control to a live browser session. Our
 [upstream notes](docs/upstream.md) explain the proposed contribution path and
 recognize the other mobile and browser projects working nearby.
 
@@ -139,7 +138,9 @@ a secure origin. The launch page also includes a Pencil diagnostic pad showing
 the pressure, tilt and samples the browser actually delivers.
 
 Documents are edited in your browser. Save downloads a file to keep in Files;
-save before closing or reloading, as automatic recovery is not yet available.
+the browser also autosaves a native layered recovery copy for each tab. Wait for
+**Recovery ready** before reloading. See [browser recovery](docs/browser-recovery.md)
+for storage scope and limitations.
 
 `setup.sh` uses the exact public upstream revision and patches recorded in this
 repo. It preserves existing checkouts and refuses a mismatched source tree.
@@ -152,7 +153,7 @@ The workspace and input policies have automated coverage; browser checks include
 saved swatches, mask painting, retouching, layer targeting through resizing, and
 multi-layer PSD save/reopen. Apple Pencil has been tested on a physical iPad.
 The next pass includes pressure and tilt measurements, longer PSD workflows,
-remaining touch dialogs and recovery. The [roadmap](docs/ipad-port.md) and [test record](docs/verification.md)
+remaining touch dialogs and physical-iPad recovery checks. The [roadmap](docs/ipad-port.md) and [test record](docs/verification.md)
 keep the detail in one place.
 
 Development happens in this repository. Build and run the workspace locally;
@@ -175,3 +176,10 @@ PhotoCraft and ArtCraft belong to their respective authors; this is an independe
 adaptation. iPad and Apple Pencil are Apple trademarks.
 
 <p align="center"><sub>Made with PhotoCraft. A little more within reach. <a href="https://1puni.com">1puni</a> ◡</sub></p>
+
+## Collaborate through MCP locally
+
+The opt-in [live browser control relay](docs/browser-control.md) connects
+PhotoCraft's existing MCP bridge to the document in the browser. It uses the
+shared command and undo paths. Start it in a separate local instance and save
+existing browser work before switching; it is not enabled by ordinary page loads.

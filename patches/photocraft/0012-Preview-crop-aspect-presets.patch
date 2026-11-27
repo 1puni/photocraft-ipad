@@ -1,0 +1,187 @@
+From 07b2b2c045634c6b4d004045d28ff798698f2a26 Mon Sep 17 00:00:00 2001
+From: Evita Stenqvist <evita@stenqvist.co>
+Date: Wed, 25 Nov 2026 11:46:42 +0100
+Subject: [PATCH] Preview crop aspect presets without cumulative frame shrink
+
+---
+ crates/ui-egui/src/crop_ui.rs | 109 ++++++++++++++++++++++++++++++++++
+ docs/ui-design.md             |   6 ++
+ 2 files changed, 115 insertions(+)
+
+diff --git a/crates/ui-egui/src/crop_ui.rs b/crates/ui-egui/src/crop_ui.rs
+index 6508431e7..7d50e0291 100644
+--- a/crates/ui-egui/src/crop_ui.rs
++++ b/crates/ui-egui/src/crop_ui.rs
+@@ -32,6 +32,16 @@ pub struct CropState {
+     pub default_frame: bool,
+     /// The document (index and size) the default frame was made for.
+     frame_for: Option<(usize, u32, u32)>,
++    /// Basis and last preview of consecutive ratio choices, so trying presets
++    /// does not progressively shrink the frame. A new gesture invalidates it.
++    ratio_frame: Option<RatioFrame>,
++}
++
++#[derive(Clone, Copy, Debug, PartialEq)]
++struct RatioFrame {
++    basis: [f64; 4],
++    preview: [f64; 4],
++    untouched: bool,
+ }
+ 
+ /// A crop gesture in progress. Rects are `[x0, y0, x1, y1]` in document coordinates.
+@@ -101,6 +111,39 @@ fn preset_ratio(app: &PhotocraftApp) -> Option<f64> {
+     crate::chrome_ui::crop_ratio(&app.ui.tool_options.crop_ratio, size.0, size.1).map(|(w, h)| w / h).filter(|k| k.is_finite() && *k > 0.0)
+ }
+ 
++/// Set a crop preset and immediately fit it inside the pending frame. Choosing a
++/// ratio must preview its result without requiring another drag or expanding the
++/// canvas. Free leaves the frame intact; it only releases the constraint.
++pub fn set_ratio(app: &mut PhotocraftApp, ratio: &str) {
++    app.ui.tool_options.crop_ratio = ratio.into();
++    ensure_frame(app);
++    let (Some(k), Some(current)) = (preset_ratio(app), app.ui.crop_rect) else {
++        app.crop.ratio_frame = None;
++        return;
++    };
++    let previous = app.crop.ratio_frame.filter(|last| last.preview == current);
++    let r = previous.map_or(current, |last| last.basis);
++    let untouched = previous.map_or(app.crop.default_frame, |last| last.untouched);
++    let (w, h) = (r[2] - r[0], r[3] - r[1]);
++    if !r.iter().all(|v| v.is_finite()) || !w.is_finite() || !h.is_finite() || w < MIN_FRAME || h < MIN_FRAME || app.crop.drag.is_some() {
++        return;
++    }
++    let width = w.min(h * k);
++    let height = width / k;
++    // Preserve an exact default frame across rational-aspect roundoff.
++    let (width, height) = if (width - w).abs() < 1e-7 && (height - h).abs() < 1e-7 { (w, h) } else { (width, height) };
++    if width < MIN_FRAME || height < MIN_FRAME {
++        return;
++    }
++    let (cx, cy) = (r[0] + w * 0.5, r[1] + h * 0.5);
++    let next = [cx - width * 0.5, cy - height * 0.5, cx + width * 0.5, cy + height * 0.5];
++    app.crop.ratio_frame = Some(RatioFrame { basis: r, preview: next, untouched });
++    if next != current {
++        app.ui.crop_rect = Some(next);
++    }
++    app.crop.default_frame = untouched && next == r;
++}
++
+ /// A new frame drawn from `anchor` to `cur`: ⇧ square, ⌥ from the centre, `ratio` held.
+ pub fn drawn(anchor: [f64; 2], cur: [f64; 2], ratio: Option<f64>, mods: Modifiers) -> [f64; 4] {
+     let e = match ratio {
+@@ -158,6 +201,7 @@ pub fn set_space(app: &mut PhotocraftApp, down: bool) {
+ /// cancelled or committed, it frames the selection's bounds, or the whole canvas.
+ pub fn ensure_frame(app: &mut PhotocraftApp) {
+     if app.ui.tool != Tool::Crop {
++        app.crop.ratio_frame = None;
+         // Leaving the tool drops an untouched default frame (a drawn one stays pending).
+         if app.crop.default_frame {
+             app.ui.crop_rect = None;
+@@ -173,6 +217,7 @@ pub fn ensure_frame(app: &mut PhotocraftApp) {
+     if app.ui.crop_rect.is_some() || app.crop.drag.is_some() {
+         return;
+     }
++    app.crop.ratio_frame = None;
+     let Some(st) = app.session.active() else { return };
+     let canvas = st.doc.bounds();
+     // Computed once per new frame, not per frame drawn.
+@@ -190,6 +235,17 @@ pub fn active(app: &PhotocraftApp) -> bool {
+     app.ui.tool == Tool::Crop && app.crop.drag.is_some()
+ }
+ 
++/// Whether applying the crop would do more than accept the untouched default.
++pub fn pending(app: &PhotocraftApp) -> bool {
++    app.ui.crop_rect.is_some() && !app.crop.default_frame
++}
++
++/// Discard only the pending crop and its gesture/preset state, never document pixels.
++pub fn cancel(app: &mut PhotocraftApp) {
++    app.ui.crop_rect = None;
++    app.crop = CropState::default();
++}
++
+ fn tolerance(app: &PhotocraftApp) -> f64 {
+     HANDLE_PX / (app.current_zoom() as f64).max(0.01)
+ }
+@@ -208,6 +264,7 @@ pub fn pointer(app: &mut PhotocraftApp, ev: ToolEvent, mods: Modifiers) -> bool
+     }
+     match ev {
+         ToolEvent::Down { .. } => {
++            app.crop.ratio_frame = None;
+             let frame = app.ui.crop_rect.filter(|r| r.iter().all(|v| v.is_finite()));
+             app.crop.drag = Some(match frame.map(|r| (r, hit(r, p, tolerance(app)))) {
+                 Some((rect, Hit::Handle(hx, hy))) => CropDrag::Resize { hx, hy, start: p, rect },
+@@ -543,4 +600,56 @@ mod tests {
+         app.ui.tool = Tool::Brush;
+         assert_eq!(cursor(&app, [60.0, 40.0]), None);
+     }
++
++    #[test]
++    fn preset_changes_preview_immediately_without_cumulative_shrink() {
++        let mut app = app(SampleType::U8);
++        let before = app.session.active().unwrap().doc.clone();
++        app.ui.crop_rect = Some([20., 20., 140., 100.]);
++        set_ratio(&mut app, "1:1");
++        assert_eq!(app.ui.crop_rect, Some([40., 20., 120., 100.]));
++        let square = app.ui.crop_rect;
++        set_ratio(&mut app, "16:9");
++        let wide = app.ui.crop_rect.unwrap();
++        assert!(((wide[2] - wide[0]) / (wide[3] - wide[1]) - 16. / 9.).abs() < 1e-6);
++        set_ratio(&mut app, "1:1");
++        assert_eq!(app.ui.crop_rect, square);
++        set_ratio(&mut app, "");
++        assert_eq!(app.ui.crop_rect, square);
++        assert_eq!(app.session.active().unwrap().doc, before, "ratio previews do not edit pixels");
++        // An externally changed frame supersedes the remembered preset basis.
++        app.ui.crop_rect = Some([0., 0., 40., 20.]);
++        set_ratio(&mut app, "1:1");
++        assert_eq!(app.ui.crop_rect, Some([10., 0., 30., 20.]));
++    }
++
++    #[test]
++    fn choosing_a_ratio_on_the_default_frame_makes_an_undoable_crop() {
++        let mut app = app(SampleType::U8);
++        let before = app.session.active().unwrap().doc.clone();
++        ensure_frame(&mut app);
++        assert!(app.crop.default_frame);
++        set_ratio(&mut app, "16:9");
++        assert!(!app.crop.default_frame);
++        crate::canvas::commit_crop(&mut app);
++        assert_ne!(app.session.active().unwrap().doc, before);
++        app.run("edit.undo", serde_json::json!({})).unwrap();
++        assert_eq!(app.session.active().unwrap().doc, before);
++    }
++
++    #[test]
++    fn returning_to_original_after_preview_restores_the_untouched_frame() {
++        let mut app = app(SampleType::U8);
++        app.run("file.new", serde_json::json!({"width":20,"height":77})).unwrap();
++        let before = app.session.active().unwrap().doc.clone();
++        ensure_frame(&mut app);
++        let original = app.ui.crop_rect;
++        set_ratio(&mut app, "16:9");
++        assert!(pending(&app));
++        set_ratio(&mut app, "original");
++        assert_eq!(app.ui.crop_rect, original);
++        assert!(!pending(&app));
++        crate::canvas::commit_crop(&mut app);
++        assert_eq!(app.session.active().unwrap().doc, before);
++    }
+ }
+diff --git a/docs/ui-design.md b/docs/ui-design.md
+index 92b7d66ea..3a875a14a 100644
+--- a/docs/ui-design.md
++++ b/docs/ui-design.md
+@@ -157,3 +157,9 @@ to another edge or inside a tightly fitted box when outside space is unavailable
+ The knob uses the existing rotate gesture and history; an inside knob rotates
+ rather than moving pixels. Distort and Warp omit it because their gestures do
+ not rotate the box. Resize handles retain their existing hit areas.
++
++Crop workspaces can use `crop_ui::set_ratio` to preview a preset immediately in
++an existing crop frame. The preview fits inside the frame without enlarging the
++canvas; trying different presets shares the same basis until a gesture or
++external frame change, avoiding cumulative shrink. Free releases the constraint.
++Only the usual crop commit changes pixels/history.
+-- 
+2.52.0
+

@@ -941,11 +941,16 @@ version = "0.36.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5eb3f3effb2726fee23449293e67acbf6cc6ce35525b1722bd5743bb348114d5"
 dependencies = [
+ "eframe",
  "egui",
+ "egui-wgpu",
+ "image",
  "kittest",
  "log",
+ "pollster 1.0.1",
  "serde",
  "toml",
+ "wgpu",
 ]
 
 [[package]]
@@ -2697,6 +2702,7 @@ dependencies = [
 name = "photocraft-ipad"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "eframe",
  "egui",
  "egui_kittest",
@@ -2704,10 +2710,12 @@ dependencies = [
  "photocraft-color",
  "photocraft-doc",
  "photocraft-engine",
+ "photocraft-format",
  "photocraft-ui-egui",
  "photocraft-web",
  "serde_json",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
  "web-sys",
 ]
 

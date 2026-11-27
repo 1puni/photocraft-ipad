@@ -889,3 +889,387 @@ fn rail_colour_chips_open_the_correct_target_without_changing_colours() {
         );
     }
 }
+
+#[test]
+fn transform_controls_resize_apply_undo_cancel_and_change_modes_at_tablet_sizes() {
+    use egui_kittest::{Harness, kittest::Queryable};
+    use photocraft_ui_egui::{canvas::ToolEvent, state::TransformMode, transform_tool};
+    for size in [vec2(1194., 834.), vec2(834., 1194.), vec2(507., 768.)] {
+        let mut app = app();
+        app.run(
+            "file.new",
+            json!({"width":256,"height":256,"background":"transparent"}),
+        )
+        .unwrap();
+        app.run(
+            "select.rect",
+            json!({"x":32,"y":32,"width":128,"height":128}),
+        )
+        .unwrap();
+        app.run("edit.fill", json!({"color":"#ff0000"})).unwrap();
+        app.run("select.deselect", json!({})).unwrap();
+        app.ui.tool = Tool::Move;
+        let before = app.session.active().unwrap().doc.clone();
+        let mut h = Harness::builder().with_size(size).build_ui_state(
+            |ui, (app, w): &mut (PhotocraftApp, TabletUi)| w.show(app, ui),
+            (app, TabletUi::default()),
+        );
+        h.run_steps(3);
+        h.get_by_label("Transform").click();
+        h.run_steps(3);
+        let original = h.state().0.ui.transform.as_ref().unwrap().quad;
+        for event in [
+            ToolEvent::Down {
+                x: original[2][0],
+                y: original[2][1],
+                pressure: 1.,
+            },
+            ToolEvent::Up {
+                x: original[2][0] + 32.,
+                y: original[2][1] + 32.,
+            },
+        ] {
+            assert!(transform_tool::pointer(
+                &mut h.state_mut().0,
+                event,
+                egui::Modifiers::NONE
+            ));
+        }
+        assert_ne!(h.state().0.ui.transform.as_ref().unwrap().quad, original);
+        h.run_steps(3);
+        for label in ["Resize", "Distort", "Warp", "More", "Done", "Cancel"] {
+            let r = h.get_by_label(label).rect();
+            assert!(
+                r.height() >= 44. && r.left() >= 0. && r.right() <= size.x && r.bottom() <= size.y,
+                "{label}: {r:?} at {size:?}"
+            );
+        }
+        h.get_by_label("Done").click();
+        h.run_steps(3);
+        assert!(h.state().0.ui.transform.is_none());
+        assert_ne!(h.state().0.session.active().unwrap().doc, before);
+        h.get_by_label("Undo").click();
+        h.run_steps(3);
+        assert_eq!(h.state().0.session.active().unwrap().doc, before);
+        h.get_by_label("Transform").click();
+        h.run_steps(3);
+        h.get_by_label("Distort").click();
+        h.run_steps(3);
+        assert_eq!(
+            h.state().0.ui.transform.as_ref().unwrap().mode,
+            TransformMode::Distort
+        );
+        h.get_by_label("Warp").click();
+        h.run_steps(3);
+        assert!(h.state().0.ui.transform.as_ref().unwrap().warp.is_some());
+        let warp_before = h.state().0.ui.transform.as_ref().unwrap().warp.clone();
+        for event in [
+            ToolEvent::Down {
+                x: original[0][0],
+                y: original[0][1],
+                pressure: 1.,
+            },
+            ToolEvent::Up {
+                x: original[0][0] + 25.,
+                y: original[0][1] + 15.,
+            },
+        ] {
+            assert!(transform_tool::pointer(
+                &mut h.state_mut().0,
+                event,
+                egui::Modifiers::NONE
+            ));
+        }
+        assert_ne!(h.state().0.ui.transform.as_ref().unwrap().warp, warp_before);
+        h.get_by_label("Cancel").click();
+        h.run_steps(3);
+        assert!(h.state().0.ui.transform.is_none());
+        assert_eq!(h.state().0.session.active().unwrap().doc, before);
+        h.get_by_label("Transform layer").click();
+        h.run_steps(3);
+        h.get_by_label("Warp").click();
+        h.run_steps(3);
+        assert!(h.state().0.ui.transform.as_ref().unwrap().warp.is_some());
+    }
+}
+
+#[test]
+fn focused_transform_keeps_actions_stable_and_restores_hidden_modifier_latches() {
+    use egui_kittest::{Harness, kittest::Queryable};
+    for size in [vec2(1194., 834.), vec2(834., 1194.), vec2(507., 768.)] {
+        let mut app = app();
+        app.run(
+            "file.new",
+            json!({"width":128,"height":128,"background":"transparent"}),
+        )
+        .unwrap();
+        app.run("edit.fill", json!({"color":"#b75d39"})).unwrap();
+        app.ui.tool = Tool::CloneStamp;
+        let before = app.session.active().unwrap().doc.clone();
+        let w = TabletUi {
+            shift: true,
+            alt: true,
+            clone_source_pick: true,
+            ..Default::default()
+        };
+        let mut h = Harness::builder().with_size(size).build_ui_state(
+            |ui, (app, w): &mut (PhotocraftApp, TabletUi)| w.show(app, ui),
+            (app, w),
+        );
+        h.run_steps(3);
+        h.get_by_label("Transform layer").click();
+        h.run_steps(3);
+        assert!(!h.state().1.shift && !h.state().1.alt);
+        assert_eq!(h.state().0.ui.tool, Tool::CloneStamp);
+        assert!(!h.state().1.clone_source_pick);
+        assert_eq!(h.state().0.session.active().unwrap().doc, before);
+        let done = h.get_by_label("Done").rect();
+        let cancel = h.get_by_label("Cancel").rect();
+        assert_eq!(done.top(), h.get_by_label("Resize").rect().top());
+        for (menu, choice) in [("More", "Skew"), ("Skew ▾", "Perspective")] {
+            h.get_by_label(menu).click();
+            h.run_steps(3);
+            h.get_by_label(choice).click();
+            h.run_steps(3);
+            assert_eq!(h.get_by_label("Done").rect(), done);
+            assert_eq!(h.get_by_label("Cancel").rect(), cancel);
+        }
+        let advanced = h.get_by_label("Perspective ▾").rect();
+        assert!(
+            advanced.right() <= cancel.left(),
+            "advanced mode overlaps Cancel at {size:?}"
+        );
+        h.get_by_label("Warp").click();
+        h.run_steps(3);
+        assert_eq!(h.get_by_label("Done").rect(), done);
+        assert_eq!(h.get_by_label("Cancel").rect(), cancel);
+        h.get_by_label("Cancel").click();
+        h.run_steps(3);
+        assert!(h.state().1.shift && h.state().1.alt);
+        assert_eq!(h.state().0.session.active().unwrap().doc, before);
+    }
+}
+
+#[test]
+fn crop_presets_preview_retention_is_explicit_and_apply_undo_cancel_work() {
+    use egui_kittest::{Harness, kittest::Queryable};
+    for size in [vec2(1194., 834.), vec2(834., 1194.), vec2(507., 768.)] {
+        for keep in [false, true] {
+            let mut app = app();
+            app.run(
+                "file.new",
+                json!({"width":128,"height":96,"background":"transparent"}),
+            )
+            .unwrap();
+            app.run("edit.fill", json!({"color":"#b75d39"})).unwrap();
+            app.ui.tool = Tool::Crop;
+            let before = app.session.active().unwrap().doc.clone();
+            let mut h = Harness::builder().with_size(size).build_ui_state(
+                |ui, (app, w): &mut (PhotocraftApp, TabletUi)| w.show(app, ui),
+                (app, TabletUi::default()),
+            );
+            h.run_steps(3);
+            h.get_by_label("Crop: Free").click();
+            h.run_steps(3);
+            h.get_by_label("Square").click();
+            h.run_steps(3);
+            let square = h.state().0.ui.crop_rect;
+            assert_eq!(square, Some([16., 0., 112., 96.]));
+            let apply = h.get_by_label("Apply").rect();
+            h.get_by_label("Crop: Square").click();
+            h.run_steps(3);
+            h.get_by_label("9:16").click();
+            h.run_steps(3);
+            assert_eq!(h.get_by_label("Apply").rect(), apply);
+            h.get_by_label("Crop: 9:16").click();
+            h.run_steps(3);
+            h.get_by_label("Square").click();
+            h.run_steps(3);
+            assert_eq!(
+                h.state().0.ui.crop_rect,
+                square,
+                "preset exploration must not shrink cumulatively"
+            );
+            if keep {
+                h.get_by_label("Outside: Delete").click();
+                h.run_steps(3);
+                h.get_by_label("Keep cropped pixels").click();
+                h.run_steps(3);
+            }
+            let retention = if keep {
+                "Outside: Keep"
+            } else {
+                "Outside: Delete"
+            };
+            let mut previous = None;
+            for label in ["Crop: Square", retention, "Cancel", "Apply"] {
+                let r = h.get_by_label(label).rect();
+                assert!(
+                    r.height() >= 44.
+                        && r.left() >= 0.
+                        && r.right() <= size.x
+                        && r.bottom() <= size.y,
+                    "{label} {r:?} at {size:?}"
+                );
+                assert_eq!(r.top(), apply.top());
+                if let Some(right) = previous {
+                    assert!(r.left() >= right);
+                }
+                previous = Some(r.right());
+            }
+            assert_eq!(h.state().0.session.active().unwrap().doc, before);
+            h.get_by_label("Apply").click();
+            h.run_steps(3);
+            let st = h.state().0.session.active().unwrap();
+            assert_eq!((st.doc.size.width, st.doc.size.height), (96, 96));
+            let layer = st.doc.layer(st.active_layer.unwrap()).unwrap();
+            assert_eq!(
+                layer.surface().unwrap().content_bounds().width(),
+                if keep { 128 } else { 96 }
+            );
+            h.get_by_label("Undo").click();
+            h.run_steps(3);
+            assert_eq!(h.state().0.session.active().unwrap().doc, before);
+            h.get_by_label("Crop: Square").click();
+            h.run_steps(3);
+            h.get_by_label("16:9").click();
+            h.run_steps(3);
+            h.get_by_label("Cancel").click();
+            h.run_steps(3);
+            assert_eq!(h.state().0.session.active().unwrap().doc, before);
+            assert!(h.state().0.ui.crop_rect.is_none());
+        }
+    }
+}
+
+#[test]
+fn selection_to_mask_is_explicit_preserves_pixels_and_undo_restores_selection() {
+    use egui_kittest::{Harness, kittest::Queryable};
+    for size in [vec2(1194., 834.), vec2(834., 1194.), vec2(507., 768.)] {
+        for (label, keep) in [("Keep selected area", true), ("Hide selected area", false)] {
+            let mut app = app();
+            app.run(
+                "file.new",
+                json!({"width":32,"height":32,"background":"transparent"}),
+            )
+            .unwrap();
+            app.run("edit.fill", json!({"color":"#b75d39"})).unwrap();
+            app.run("select.rect", json!({"x":0,"y":0,"width":16,"height":32}))
+                .unwrap();
+            app.ui.tool = Tool::RectMarquee;
+            let before = app.session.active().unwrap().doc.clone();
+            let id = app.session.active().unwrap().active_layer.unwrap();
+            let mut h = Harness::builder().with_size(size).build_ui_state(
+                |ui, (app, w): &mut (PhotocraftApp, TabletUi)| w.show(app, ui),
+                (app, TabletUi::default()),
+            );
+            h.run_steps(3);
+            let top = h.get_by_label("Options").rect().top();
+            for label in ["Mode: New", "Selection", "Options", "Make mask"] {
+                let r = h.get_by_label(label).rect();
+                assert!(
+                    r.left() >= 0.
+                        && r.right() <= size.x
+                        && r.height() >= 44.
+                        && r.bottom() <= size.y
+                );
+                assert_eq!(r.top(), top);
+            }
+            h.get_by_label("Mode: New").click();
+            h.run_steps(3);
+            h.get_by_label("Subtract").click();
+            h.run_steps(3);
+            assert_eq!(h.state().0.ui.selection_mode, 2);
+            h.get_by_label("Make mask").click();
+            h.run_steps(3);
+            h.get_by_label(label).click();
+            h.run_steps(3);
+            assert!(h.state().1.message.is_empty(), "{}", h.state().1.message);
+            let doc = &h.state().0.session.active().unwrap().doc;
+            let layer = doc.layer(id).unwrap();
+            let mask = layer.mask.as_ref().unwrap();
+            assert_eq!(mask.value(4, 4) > 0.99, keep);
+            assert_eq!(mask.value(24, 4) > 0.99, !keep);
+            assert_eq!(layer.surface(), before.layer(id).unwrap().surface());
+            assert!(h.state().0.ui.mask_target);
+            assert!(h.state().1.mask_controls.is_some());
+            assert!(h.query_all_by_label("Make mask").next().is_none());
+            let masked = doc.clone();
+            h.get_by_label("Edit mask").click();
+            h.run_steps(3);
+            assert_eq!(
+                h.state().0.session.active().unwrap().doc,
+                masked,
+                "existing masks must not be replaced"
+            );
+            h.get_by_label("Paint mask").scroll_to_me();
+            h.run_steps(3);
+            h.get_by_label("Paint mask").click();
+            h.run_steps(3);
+            assert_eq!(h.state().0.ui.tool, Tool::Brush);
+            assert!(h.state().0.ui.mask_target);
+            assert_eq!(h.state().0.session.active().unwrap().doc, masked);
+            h.get_by_label("Undo").click();
+            h.run_steps(3);
+            assert_eq!(h.state().0.session.active().unwrap().doc, before);
+        }
+    }
+}
+
+#[test]
+fn brush_values_fit_narrow_widths_and_popup_changes_use_shared_settings() {
+    use egui_kittest::{Harness, kittest::Queryable};
+    for size in [vec2(1194., 834.), vec2(834., 1194.), vec2(507., 768.)] {
+        for tool in [Tool::Brush, Tool::CloneStamp, Tool::Healing] {
+            let mut app = app();
+            app.run("file.new", json!({"width":32,"height":32}))
+                .unwrap();
+            app.ui.tool = tool;
+            app.session.tools.brush.size = 5000.;
+            let size_label = format!("Size: {:.1} px", app.session.tools.brush.size);
+            let before = app.session.active().unwrap().doc.clone();
+            let mut h = Harness::builder().with_size(size).build_ui_state(
+                |ui, (app, w): &mut (PhotocraftApp, TabletUi)| w.show(app, ui),
+                (app, TabletUi::default()),
+            );
+            h.run_steps(3);
+            let top = h.get_by_label("Options").rect().top();
+            for label in [size_label.as_str(), "Opacity: 100%", "Options"] {
+                let r = h.get_by_label(label).rect();
+                assert!(
+                    r.left() >= 0.
+                        && r.right() <= size.x
+                        && r.height() >= 44.
+                        && r.bottom() <= size.y
+                );
+                assert_eq!(r.top(), top);
+            }
+            if tool != Tool::Brush {
+                let r = h.get_by_label("Set source").rect();
+                assert!(r.right() <= size.x && r.top() == top);
+                h.get_by_label("Set source").click();
+                h.run_steps(3);
+                let r = h.get_by_label("Cancel source").rect();
+                assert!(r.right() <= size.x && r.top() == top);
+                assert!(h.get_by_label("Options").rect().right() <= size.x);
+            }
+            h.get_by_label("Opacity: 100%").click();
+            h.run_steps(3);
+            let r = h
+                .get_by_role_and_label(egui::accesskit::Role::Slider, "Brush opacity")
+                .rect();
+            assert!(r.left() >= 0. && r.right() <= size.x && r.bottom() <= size.y);
+            let start = r.center();
+            h.hover_at(start);
+            h.drag_at(start);
+            h.run_steps(1);
+            h.hover_at(egui::pos2(r.left() + r.width() * 0.25, r.center().y));
+            h.run_steps(2);
+            h.drop_at(egui::pos2(r.left() + r.width() * 0.25, r.center().y));
+            h.run_steps(3);
+            assert!(h.state().0.session.tools.brush.opacity < 0.6);
+            assert!(h.state().0.session.tools.brush.opacity > 0.1);
+            assert_eq!(h.state().0.session.active().unwrap().doc, before);
+        }
+    }
+}
