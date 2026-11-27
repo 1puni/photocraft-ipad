@@ -44,7 +44,7 @@ leaving the edge or ending the drag stops it.
 | Selection / retouch | Selection menu with Layer via Copy/Cut, inverse and deselect; one-shot Set source for Clone Stamp/Healing | Physical Pencil source-pick acceptance; complete selection/refine/mask workflows |
 | History | Large history rows, undo/redo and state traversal; live pre-edit layer selection captured for Undo, with coalesced drags retaining one step | Integration test with active transforms and grouped settings |
 | Documents | Open/new/save/export access, touch new-document and Export As dialogs, document switcher | Close/recovery workflow, remaining file dialog families, repeated PSD roundtrips |
-| Pencil | Per-point pressure/tilt feed, optional coalesced samples with fallback, palm suppression, cancellation release | Physical device evidence; browser sample fidelity, source/constraint gestures |
+| Pencil | Per-point pressure/tilt feed, optional coalesced samples with fallback, palm suppression, cancellation release | Measure pressure and tilt ranges on device; check browser sample fidelity and source/constraint gestures |
 | Navigation | Two-finger pan/pinch; finger canvas does not paint; direct panel drag scrolling, UI-only Pencil touch lifetimes for shared controls, wider inspector/sheet scrollbars | Physical Pencil scrolling, cross-boundary/cancel stress, orientation changes |
 | Reliability | Preserve last served preview when build fails | Browser memory loss/context recovery, large PSD performance |
 

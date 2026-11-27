@@ -3,6 +3,12 @@
 Entries identify the revision and environment tested. Historical implementation
 snapshots are retained below; the roadmap describes the current direction.
 
+## Device testing update — 2026-11-27
+
+The project owner confirmed physical Apple Pencil testing on iPad. Pressure and
+tilt ranges and the workflow-specific checks in the [roadmap](ipad-port.md)
+still need measurements or individual acceptance records.
+
 ## Command-shelf integration checks
 
 Implementation commit `2ba5edf` is integrated as `989c3ae`, with the publishing
