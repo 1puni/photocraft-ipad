@@ -151,9 +151,9 @@ prevent stale application code from another checkout being linked.
 
 The workspace and input policies have automated coverage; browser checks include
 saved swatches, mask painting, retouching, layer targeting through resizing, and
-multi-layer PSD save/reopen. The next pass is measured
-physical Pencil testing, longer PSD workflows, remaining touch dialogs and
-physical-iPad recovery checks. The [roadmap](docs/ipad-port.md) and [test record](docs/verification.md)
+multi-layer PSD save/reopen. Apple Pencil has been tested on a physical iPad.
+The next pass includes pressure and tilt measurements, longer PSD workflows,
+remaining touch dialogs and physical-iPad recovery checks. The [roadmap](docs/ipad-port.md) and [test record](docs/verification.md)
 keep the detail in one place.
 
 Development happens in this repository. Build and run the workspace locally;
